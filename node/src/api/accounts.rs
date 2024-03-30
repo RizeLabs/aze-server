@@ -25,12 +25,10 @@ use actix_web::{
 use derive_more::Display;
 use serde::{Deserialize, Serialize};
 
-
 #[derive(Deserialize, Serialize)]
 pub struct AccountCreationResponse {
     is_created: bool,
 }
-
 
 #[derive(Debug, Display)]
 pub enum AccountCreationError {

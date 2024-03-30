@@ -24,7 +24,7 @@ pub fn create_basic_aze_game_account(
         AuthScheme::RpoFalcon512 { pub_key } => ("basic::auth_tx_rpo_falcon512", pub_key.into()),
     };
 
-    let aze_game_account_code_src: &str = include_str!("../../contracts/game.masm");
+    let aze_game_account_code_src: &str = include_str!("../../contracts/core/game.masm");
 
     let aze_game_account_code_ast = ModuleAst::parse(aze_game_account_code_src)
         .map_err(|e| AccountError::AccountCodeAssemblerError(e.into()))?;
@@ -67,7 +67,7 @@ pub fn create_basic_aze_player_account(
         AuthScheme::RpoFalcon512 { pub_key } => ("basic::auth_tx_rpo_falcon512", pub_key.into()),
     };
 
-    let aze_player_account_code_src: &str = include_str!("../../contracts/player.masm");
+    let aze_player_account_code_src: &str = include_str!("../../contracts/core/player.masm");
 
     let aze_player_account_code_ast = ModuleAst::parse(aze_player_account_code_src)
         .map_err(|e| AccountError::AccountCodeAssemblerError(e.into()))?;
