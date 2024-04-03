@@ -1,0 +1,117 @@
+use.std::crypto::hashes::native
+use.std::mem
+
+# ERRORS
+# =================================================================================================
+
+# Note's advice data does not match the expected commitment.
+const.ERR_NOTE_DATA_MISMATCH=0x00020040
+
+#! Writes the data currently on the advice stack into the memory at the specified location and
+#! verifies that the hash of the written data is equal to the provided hash.
+#!
+#! Inputs:  [start_ptr, end_ptr, HASH]
+#! Outputs: []
+proc.write_advice_data_to_memory
+    # prepare the stack for reading from the advice stack
+    padw padw padw
+    # => [PAD, PAD, PAD, start_ptr, end_ptr, HASH]
+
+    # read the data from advice stack to memory
+    exec.mem::pipe_double_words_to_memory
+    # => [PERM, PERM, PERM, end_ptr, HASH]
+
+    # extract the digest
+    exec.native::state_to_digest
+    # => [DIGEST, end_ptr, HASH]
+
+    # drop pointer for reading from memory
+    movup.4 drop
+    # => [DIGEST, HASH]
+
+    # assert the computed hash is equal to the expected hash
+    assert_eqw.err=ERR_NOTE_DATA_MISMATCH
+    # => []
+end
+
+#! Writes the assets of the currently executing note into memory starting at the specified address.
+#!
+#! Inputs: [dest_ptr]
+#! Outputs: [num_assets, dest_ptr]
+#!
+#! - dest_ptr is the memory address to write the assets.
+#! - num_assets is the number of assets in the currently executing note.
+export.get_assets
+    padw push.0
+    # => [0, 0, 0, 0, 0, dest_ptr]
+
+    # get the current consumed note vault hash
+    syscall.get_note_vault_info
+    # => [VAULT_HASH, num_assets, dest_ptr]
+
+    # load the vault data from the advice map to the advice stack
+    adv.push_mapval
+    # => [VAULT_HASH, num_assets, dest_ptr]
+
+    # calculate number of assets rounded up to an even number
+    dup.4 dup is_odd add
+    # => [even_num_assets, VAULT_HASH, num_assets, dest_ptr]
+
+    # calculate the start and end pointer for reading to memory
+    dup.6 add dup.6
+    # => [start_ptr, end_ptr, VAULT_HASH, num_assets, dest_ptr]
+
+    # write the data from the advice stack into memory
+    exec.write_advice_data_to_memory
+    # => [num_assets, dest_ptr]
+end
+
+#! Writes the inputs of the currently execute note into memory starting at the specified address.
+#!
+#! Inputs: [dest_ptr]
+#! Outputs: [num_inputs, dest_ptr]
+#!
+#! - dest_ptr is the memory address to write the inputs.
+export.get_inputs
+    padw push.0
+    # => [0, 0, 0, 0, 0, dest_ptr]
+
+    # get the current consumed note inputs hash
+    syscall.get_note_inputs_info
+    # => [INPUTS_HASH, num_inputs, dest_ptr]
+
+    # load the inputs from the advice map to the advice stack
+    adv.push_mapval
+    # => [INPUTS_HASH, num_inputs, dest_ptr]
+
+    # calculate the number of words required to store the inputs
+    dup.4 u32divmod.4 neq.0 add
+    # => [num_words, INPUTS_HASH, num_inputs, dest_ptr]
+
+    # round up the number of words the next multiple of 2
+    dup is_odd add
+    # => [even_num_words, INPUTS_HASH, num_inputs, dest_ptr]
+
+    # calculate the start and end pointer for reading to memory
+    dup.6 add dup.6
+    # => [start_ptr, end_ptr, INPUTS_HASH, num_inputs, dest_ptr]
+
+    # write the data from the advice stack into memory
+    exec.write_advice_data_to_memory
+    # => [num_inputs, dest_ptr]
+end
+
+#! Returns the sender of the note currently being processed. Panics if a note is not being
+#! processed.
+#!
+#! Inputs: []
+#! Outputs: [sender]
+#!
+#! - sender is the sender of the note currently being processed.
+export.get_sender
+    push.0
+    # => [0]
+
+    syscall.get_note_sender
+    # => [sender]
+end

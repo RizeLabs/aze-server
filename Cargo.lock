@@ -266,6 +266,7 @@ checksum = "f1fdabc7756949593fe60f30ec81974b613357de856987752631dea1e3394c80"
 name = "aze-lib"
 version = "0.1.0"
 dependencies = [
+ "miden-assembly 0.8.0 (git+https://github.com/0xPolygonMiden/miden-vm.git?branch=main)",
  "miden-lib",
  "miden-objects",
  "miden-tx",
