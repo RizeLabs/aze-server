@@ -1,20 +1,171 @@
 use miden_objects::{
-    accounts::{Account, AccountCode, AccountId, AccountStorage, AccountType, StorageSlotType},
+    accounts::{
+        Account, AccountCode, AccountId, AccountStorage, AccountType, SlotItem, StorageSlotType,
+    },
     assembly::ModuleAst,
     assets::AssetVault,
-    utils::format,
-    AccountError, Word, ZERO,
+    AccountError, Felt, FieldElement, Word, ZERO,
 };
 
-use miden_lib::{AuthScheme, transaction::TransactionKernel};
+use miden_lib::{transaction::TransactionKernel, AuthScheme};
+
+fn construct_game_constructor_storage() -> Vec<SlotItem> {
+    let mut game_info: Vec<SlotItem> = vec![];
+    // generate 52 cards
+    let mut cards = vec![];
+    let mut player_ids = vec![];
+    let small_blind_amt = 5u8;
+    let buy_in_amt = 100u8;
+    let no_of_players = 4u8;
+    let flop_index = no_of_players * 2 + 1;
+
+    let mut slot_index = 1u8;
+
+    for card_suit in 0..4 {
+        for card_number in 1..13 {
+            cards.push((
+                slot_index, 
+                (
+                    StorageSlotType::Value { value_arity: 0 },
+                    [
+                        Felt::from(card_suit as u8),
+                        Felt::from(card_number as u8),
+                        Felt::ZERO,
+                        Felt::ZERO,
+                    ],
+                ),
+            ));
+            slot_index += 1;
+        }
+    }
+
+    let game_stats = vec![
+        (
+            slot_index, // storing next_turn here 
+            (
+                StorageSlotType::Value { value_arity: 0 },
+                [
+                    Felt::ZERO, // for now small blind will always be player 0 we will randomize it later
+                    Felt::ZERO,
+                    Felt::ZERO,
+                    Felt::ZERO,
+                ],
+            ),
+        ),
+        (
+            slot_index + 1, // storing small blind amt here 
+            (
+                StorageSlotType::Value { value_arity: 0 },
+                [
+                    Felt::from(small_blind_amt as u8),
+                    Felt::ZERO,
+                    Felt::ZERO,
+                    Felt::ZERO,
+                ],
+            ),
+        ),
+        (
+            slot_index + 2,
+            (
+                StorageSlotType::Value { value_arity: 0 },
+                [
+                    Felt::from(small_blind_amt * 2 as u8), // big blind amt
+                    Felt::ZERO,
+                    Felt::ZERO,
+                    Felt::ZERO,
+                ],
+            ),
+        ),
+        (
+            slot_index + 3,
+            (
+                StorageSlotType::Value { value_arity: 0 },
+                [
+                    Felt::from(buy_in_amt * 2 as u8),  // buy in amt
+                    Felt::ZERO,
+                    Felt::ZERO,
+                    Felt::ZERO,
+                ],
+            ),
+        ),
+        (
+            slot_index + 4,
+            (
+                StorageSlotType::Value { value_arity: 0 },
+                [
+                    Felt::from(no_of_players as u8),  // buy in amt
+                    Felt::ZERO,
+                    Felt::ZERO,
+                    Felt::ZERO,
+                ],
+            ),
+        ),
+        (
+            slot_index + 5,
+            (
+                StorageSlotType::Value { value_arity: 0 },
+                [
+                    Felt::from(flop_index as u8),  // index of flop
+                    Felt::ZERO,
+                    Felt::ZERO,
+                    Felt::ZERO,
+                ],
+            ),
+        ),
+        (
+            slot_index + 6,
+            (
+                StorageSlotType::Value { value_arity: 0 },
+                [
+                    Felt::ONE,  // raiser as by default raiser would be big blind
+                    Felt::ZERO,
+                    Felt::ZERO,
+                    Felt::ZERO,
+                ],
+            ),
+        ),
+    ];
+
+    slot_index += 6;
+
+    for _ in 0..no_of_players {
+        player_ids.push(
+            (
+                slot_index,
+                (
+                    StorageSlotType::Value { value_arity: 0 },
+                    [
+                        Felt::ZERO,
+                        Felt::ZERO,
+                        Felt::ZERO,
+                        Felt::ZERO,
+                    ],
+                ),
+            )
+        );
+
+        slot_index += 9; // since the mid 9 elements would cover the player in game states 
+    }
+
+
+    // merghe player_id with card_suit
+    game_info.extend(cards);
+    game_info.extend(game_stats);
+    game_info.extend(player_ids);
+    game_info
+}
 
 // method to create a basic aze game account
+// it might also would take in cards but for now we are just initializing it with 52 hardcoded cards
 pub fn create_basic_aze_game_account(
     init_seed: [u8; 32],
     auth_scheme: AuthScheme,
     account_type: AccountType,
 ) -> Result<(Account, Word), AccountError> {
-    if matches!(account_type, AccountType::FungibleFaucet | AccountType::NonFungibleFaucet) {
+    if matches!(
+        account_type,
+        AccountType::FungibleFaucet | AccountType::NonFungibleFaucet
+    ) {
         return Err(AccountError::AccountIdInvalidFieldElement(
             "Basic aze accounts cannot have a faucet account type".to_string(),
         ));
@@ -29,12 +180,14 @@ pub fn create_basic_aze_game_account(
     let aze_game_account_code_ast = ModuleAst::parse(aze_game_account_code_src)
         .map_err(|e| AccountError::AccountCodeAssemblerError(e.into()))?;
     let account_assembler = TransactionKernel::assembler();
-    let aze_game_account_code = AccountCode::new(aze_game_account_code_ast.clone(), &account_assembler)?;
+    let aze_game_account_code =
+        AccountCode::new(aze_game_account_code_ast.clone(), &account_assembler)?;
 
-    let aze_game_account_storage = AccountStorage::new(vec![(
-        0,
-        (StorageSlotType::Value { value_arity: 0 }, storage_slot_0_data),
-    )])?;
+    let game_constructor_item = construct_game_constructor_storage();
+
+    // initializing game storage with 52 cards
+    let aze_game_account_storage = AccountStorage::new(game_constructor_item)?;
+
     let account_vault = AssetVault::new(&[]).expect("error on empty vault");
 
     let account_seed = AccountId::get_account_seed(
@@ -44,9 +197,19 @@ pub fn create_basic_aze_game_account(
         aze_game_account_code.root(),
         aze_game_account_storage.root(),
     )?;
-    let account_id = AccountId::new(account_seed, aze_game_account_code.root(), aze_game_account_storage.root())?;
+    let account_id = AccountId::new(
+        account_seed,
+        aze_game_account_code.root(),
+        aze_game_account_storage.root(),
+    )?;
     Ok((
-        Account::new(account_id, account_vault, aze_game_account_storage, aze_game_account_code, ZERO),
+        Account::new(
+            account_id,
+            account_vault,
+            aze_game_account_storage,
+            aze_game_account_code,
+            ZERO,
+        ),
         account_seed,
     ))
 }
@@ -57,7 +220,10 @@ pub fn create_basic_aze_player_account(
     auth_scheme: AuthScheme,
     account_type: AccountType,
 ) -> Result<(Account, Word), AccountError> {
-    if matches!(account_type, AccountType::FungibleFaucet | AccountType::NonFungibleFaucet) {
+    if matches!(
+        account_type,
+        AccountType::FungibleFaucet | AccountType::NonFungibleFaucet
+    ) {
         return Err(AccountError::AccountIdInvalidFieldElement(
             "Basic aze player accounts cannot have a faucet account type".to_string(),
         ));
@@ -72,11 +238,15 @@ pub fn create_basic_aze_player_account(
     let aze_player_account_code_ast = ModuleAst::parse(aze_player_account_code_src)
         .map_err(|e| AccountError::AccountCodeAssemblerError(e.into()))?;
     let account_assembler = TransactionKernel::assembler();
-    let aze_player_account_code = AccountCode::new(aze_player_account_code_ast.clone(), &account_assembler)?;
+    let aze_player_account_code =
+        AccountCode::new(aze_player_account_code_ast.clone(), &account_assembler)?;
 
     let aze_player_account_storage = AccountStorage::new(vec![(
         0,
-        (StorageSlotType::Value { value_arity: 0 }, storage_slot_0_data),
+        (
+            StorageSlotType::Value { value_arity: 0 },
+            storage_slot_0_data,
+        ),
     )])?;
     let account_vault = AssetVault::new(&[]).expect("error on empty vault");
 
@@ -87,9 +257,19 @@ pub fn create_basic_aze_player_account(
         aze_player_account_code.root(),
         aze_player_account_storage.root(),
     )?;
-    let account_id = AccountId::new(account_seed, aze_player_account_code.root(), aze_player_account_storage.root())?;
+    let account_id = AccountId::new(
+        account_seed,
+        aze_player_account_code.root(),
+        aze_player_account_storage.root(),
+    )?;
     Ok((
-        Account::new(account_id, account_vault, aze_player_account_storage, aze_player_account_code, ZERO),
+        Account::new(
+            account_id,
+            account_vault,
+            aze_player_account_storage,
+            aze_player_account_code,
+            ZERO,
+        ),
         account_seed,
     ))
 }

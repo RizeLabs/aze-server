@@ -1,5 +1,11 @@
 use.miden::account
 
+# cards dealing will be offchain with private notes
+# card 0,1 -> player 1
+# card 2,3 -> player 2
+# ...
+# since we are assuming cards are already shuffled and encrypted 
+# so we don't have to implement anything here
 
 # this procedure just stores the cards as items in the account storage
 export.receive_cards
