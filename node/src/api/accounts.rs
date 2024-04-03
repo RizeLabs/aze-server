@@ -1,4 +1,4 @@
-use crate::accounts::{create_basic_aze_game_account, create_basic_aze_player_account};
+use aze_lib::accounts::{create_basic_aze_game_account, create_basic_aze_player_account};
 use crate::model::accounts::Task;
 use crate::model::accounts::TaskState;
 use miden_lib::AuthScheme;

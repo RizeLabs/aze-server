@@ -1,6 +1,6 @@
 mod api;
 mod model;
-mod accounts;
+// mod accounts;
 
 use api::accounts::{create_aze_game_account, create_aze_player_account};
 use actix_web::{HttpServer, App, middleware::Logger};
