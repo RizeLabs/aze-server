@@ -13,7 +13,7 @@ fn construct_game_constructor_storage() -> Vec<SlotItem> {
     let mut game_info: Vec<SlotItem> = vec![];
     // generate 52 cards
     let mut cards = vec![];
-    let mut player_ids = vec![];
+    let mut player_pub_keys = vec![];
     let small_blind_amt = 5u8;
     let buy_in_amt = 100u8;
     let no_of_players = 4u8;
@@ -124,16 +124,28 @@ fn construct_game_constructor_storage() -> Vec<SlotItem> {
                 ],
             ),
         ),
+        (
+            slot_index + 7, // storing raiser here
+            (
+                StorageSlotType::Value { value_arity: 0 },
+                [
+                    Felt::ONE,  // raiser as by default raiser would be big blind
+                    Felt::ZERO,
+                    Felt::ZERO,
+                    Felt::ZERO,
+                ],
+            ),
+        ),
     ];
 
-    slot_index += 6;
+    slot_index += 7;
 
     for _ in 0..no_of_players {
-        player_ids.push(
+        player_pub_keys.push(
             (
                 slot_index,
                 (
-                    StorageSlotType::Value { value_arity: 0 },
+                    StorageSlotType::Value { value_arity: 0 }, // player public key
                     [
                         Felt::ZERO,
                         Felt::ZERO,
@@ -144,14 +156,13 @@ fn construct_game_constructor_storage() -> Vec<SlotItem> {
             )
         );
 
-        slot_index += 9; // since the mid 9 elements would cover the player in game states 
+        slot_index += 8; // since the mid 9 elements would cover the player stats and initially all those values are zero
     }
-
 
     // merghe player_id with card_suit
     game_info.extend(cards);
     game_info.extend(game_stats);
-    game_info.extend(player_ids);
+    game_info.extend(player_pub_keys);
     game_info
 }
 
