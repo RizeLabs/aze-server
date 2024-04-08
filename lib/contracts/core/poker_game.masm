@@ -1,0 +1,31 @@
+use.miden::contracts::poker::poker
+
+# index corresponding to the information saved
+const.PLAYER_1_INDEX=62 # use this index to find other player pub key slot index which would always be second to the player account id
+const.SMALL_BLIND_INDEX=56
+const.BIG_BLIND_INDEX=57
+const.BUY_IN_INDEX=58
+const.NO_OF_PLAYERS_INDEX=59
+const.CURRENT_TURN_INDEX=60
+const.RAISER_INDEX=61
+const.CURRENT_TURN_PLAYER_PUB_KEY_INDEX=63 # need to check it's storage initially small blind public key on slot 62
+
+
+# game events 
+const.PLAYER_BETTED_AMOUNT=169 # check slot (169 - 100)
+const.NEXT_PLAYER_TURN=170 # check slot (170 - 100)
+const.CARD_REVEALED=171 # check slot (171 - 100)
+const.NEW_HIGHEST_BET=172 # check slot (172 - 100)
+const.BALANCE_UPDATED=173 # check slot (173 - 100)
+const.PLAYER_ACTION=174 # check slot (174 - 100)
+const.GAME_ENDED=175 # check slot (175 - 100)
+
+export.poker::play_call
+export.poker::play_raise
+export.poker::play_fold
+export.poker::play_check
+
+
+
+
+
