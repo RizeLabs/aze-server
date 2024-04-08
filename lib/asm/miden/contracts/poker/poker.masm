@@ -1,0 +1,10 @@
+use.miden::account
+
+
+# this procedure just stores the cards as items in the account storage
+export.receive_cards
+    exec.account::set_item
+
+    # prepare stack for return
+    movup.4 drop movup.4 drop movup.4 drop
+end

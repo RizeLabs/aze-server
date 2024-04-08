@@ -65,11 +65,13 @@ fn main() -> io::Result<()> {
 fn compile_miden_lib(source_dir: &Path, target_dir: &Path) -> io::Result<()> {
     let source_dir = source_dir.join(ASM_MIDEN_DIR);
 
+    println!("cargo:warning=Compiling miden");
     // if this build has the testing flag set, modify the code and reduce the cost of proof-of-work
     match env::var("CARGO_FEATURE_TESTING") {
         Ok(ref s) if s == "1" => {
             let constants = source_dir.join("kernels/tx/constants.masm");
             let patched = source_dir.join("kernels/tx/constants.masm.patched");
+            println!("cargo:warning=here");
 
             // scope for file handlers
             {

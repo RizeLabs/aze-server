@@ -17,6 +17,14 @@ export.receive_asset
     padw swapw dropw
 end
 
+export.receive_cards
+    exec.account::set_item
+
+    # prepare stack for return
+    movup.4 drop movup.4 drop movup.4 drop
+end
+
+
 #! Creates a note which sends the specified asset out of the current account
 #! to the specified recipient.
 #!

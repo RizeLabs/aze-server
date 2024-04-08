@@ -2,6 +2,7 @@ use miden_objects::{
     accounts::{
         Account, AccountCode, AccountId, AccountStorage, AccountType, SlotItem, StorageSlotType,
     },
+    assets::Asset,
     assembly::ModuleAst,
     assets::AssetVault,
     AccountError, Felt, FieldElement, Word, ZERO,
@@ -13,7 +14,7 @@ fn construct_game_constructor_storage() -> Vec<SlotItem> {
     let mut game_info: Vec<SlotItem> = vec![];
     // generate 52 cards
     let mut cards = vec![];
-    let mut player_pub_keys = vec![];
+    // let mut player_pub_keys = vec![];
     let small_blind_amt = 5u8;
     let buy_in_amt = 100u8;
     let no_of_players = 4u8;
@@ -81,7 +82,7 @@ fn construct_game_constructor_storage() -> Vec<SlotItem> {
             (
                 StorageSlotType::Value { value_arity: 0 },
                 [
-                    Felt::from(buy_in_amt * 2 as u8),  // buy in amt
+                    Felt::from(buy_in_amt as u8),  // buy in amt
                     Felt::ZERO,
                     Felt::ZERO,
                     Felt::ZERO,
@@ -112,57 +113,57 @@ fn construct_game_constructor_storage() -> Vec<SlotItem> {
                 ],
             ),
         ),
-        (
-            slot_index + 6,
-            (
-                StorageSlotType::Value { value_arity: 0 },
-                [
-                    Felt::ONE,  // raiser as by default raiser would be big blind
-                    Felt::ZERO,
-                    Felt::ZERO,
-                    Felt::ZERO,
-                ],
-            ),
-        ),
-        (
-            slot_index + 7, // storing raiser here
-            (
-                StorageSlotType::Value { value_arity: 0 },
-                [
-                    Felt::ONE,  // raiser as by default raiser would be big blind
-                    Felt::ZERO,
-                    Felt::ZERO,
-                    Felt::ZERO,
-                ],
-            ),
-        ),
+        // (
+        //     slot_index + 6,
+        //     (
+        //         StorageSlotType::Value { value_arity: 0 },
+        //         [
+        //             Felt::ONE,  // raiser as by default raiser would be big blind
+        //             Felt::ZERO,
+        //             Felt::ZERO,
+        //             Felt::ZERO,
+        //         ],
+        //     ),
+        // ),
+        // (
+        //     slot_index + 7, // storing raiser here
+        //     (
+        //         StorageSlotType::Value { value_arity: 0 },
+        //         [
+        //             Felt::ONE,  // raiser as by default raiser would be big blind
+        //             Felt::ZERO,
+        //             Felt::ZERO,
+        //             Felt::ZERO,
+        //         ],
+        //     ),
+        // ),
     ];
 
-    slot_index += 7;
+    // slot_index += 7;
 
-    for _ in 0..no_of_players {
-        player_pub_keys.push(
-            (
-                slot_index,
-                (
-                    StorageSlotType::Value { value_arity: 0 }, // player public key
-                    [
-                        Felt::ZERO,
-                        Felt::ZERO,
-                        Felt::ZERO,
-                        Felt::ZERO,
-                    ],
-                ),
-            )
-        );
+    // for _ in 0..no_of_players {
+    //     player_pub_keys.push(
+    //         (
+    //             slot_index,
+    //             (
+    //                 StorageSlotType::Value { value_arity: 0 }, // player public key
+    //                 [
+    //                     Felt::ZERO,
+    //                     Felt::ZERO,
+    //                     Felt::ZERO,
+    //                     Felt::ZERO,
+    //                 ],
+    //             ),
+    //         )
+    //     );
 
-        slot_index += 8; // since the mid 9 elements would cover the player stats and initially all those values are zero
-    }
+    //     slot_index += 8; // since the mid 9 elements would cover the player stats and initially all those values are zero
+    // }
 
     // merghe player_id with card_suit
     game_info.extend(cards);
     game_info.extend(game_stats);
-    game_info.extend(player_pub_keys);
+    // game_info.extend(player_pub_keys);
     game_info
 }
 
@@ -199,6 +200,8 @@ pub fn create_basic_aze_game_account(
     // initializing game storage with 52 cards
     let aze_game_account_storage = AccountStorage::new(game_constructor_item)?;
 
+
+    // we need to fund the account with some fungible asset which it could use to rewards players 
     let account_vault = AssetVault::new(&[]).expect("error on empty vault");
 
     let account_seed = AccountId::get_account_seed(
@@ -283,4 +286,35 @@ pub fn create_basic_aze_player_account(
         ),
         account_seed,
     ))
+}
+
+
+pub fn get_account_with_custom_account_code(
+    account_id: AccountId,
+    public_key: Word,
+    assets: Option<Asset>,
+) -> Account {
+    let account_code_src = include_str!("../../contracts/core/player.masm");
+
+    let account_code_ast = ModuleAst::parse(account_code_src).unwrap();
+    let account_assembler = TransactionKernel::assembler();
+
+    let account_code = AccountCode::new(account_code_ast.clone(), &account_assembler).unwrap();
+    let account_storage = AccountStorage::new(vec![
+        (
+            0,
+            (
+                StorageSlotType::Value { value_arity: 0 },
+                public_key,
+            ),
+        )
+    ])
+    .unwrap();
+
+    let account_vault = match assets {
+        Some(asset) => AssetVault::new(&[asset]).unwrap(),
+        None => AssetVault::new(&[]).unwrap(),
+    };
+
+    Account::new(account_id, account_vault, account_storage, account_code, Felt::new(1))
 }
