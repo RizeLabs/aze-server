@@ -86,10 +86,47 @@ export.play_call
 end
 
 export.play_check
+    # update the turn 
+    # balance, points will remain same
+    push.CURRENT_TURN_PLAYER_PUB_KEY_INDEX exec.account::get_item
+    # [0, 0, 0, current turn pub index]
+    dup
+    dup
+    dup
+
+    # [current turn pub index, current turn pub index, current turn pub index, current turn pub index]
+
+    push.PLAYER_1_INDEX exec.account::set_item
+    # [player 1 index, current turn pub index, current turn pub index, current turn pub index, current turn pub index]
+    
+
+    # check if the diff of top two elem is zero then next chance is player 2
+    lt
+    if.false
+        push.PLAYER_2_INDEX
+        push.CURRENT_TURN_PLAYER_PUB_KEY_INDEX exec.account::set_item
+    
+    else
+        lt
+        if.false
+            push.PLAYER_3_INDEX
+            push.CURRENT_TURN_PLAYER_PUB_KEY_INDEX exec.account::set_item
+        else
+            lt
+            if.false
+                push.PLAYER_4_INDEX
+                push.CURRENT_TURN_PLAYER_PUB_KEY_INDEX exec.account::set_item
+            else
+                lt
+                if.false
+                    push.PLAYER_1_INDEX
+                    push.CURRENT_TURN_PLAYER_PUB_KEY_INDEX exec.account::set_item
+    
 
 end
 
 export.play_raise
+# update the turn 
 
 end
 
