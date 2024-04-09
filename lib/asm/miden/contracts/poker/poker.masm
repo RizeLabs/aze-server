@@ -94,8 +94,10 @@ export.play_check
     dup
     dup
 
+    # why duplicated this ??
     # [current turn pub index, current turn pub index, current turn pub index, current turn pub index]
 
+    # why are we setting player 1 index to current turn ?
     push.PLAYER_1_INDEX exec.account::set_item
     # [player 1 index, current turn pub index, current turn pub index, current turn pub index, current turn pub index]
     
