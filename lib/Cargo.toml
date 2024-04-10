@@ -9,6 +9,7 @@ edition = "2021"
 miden-lib = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "main", features= ["concurrent","testing"] }
 miden-tx = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "main" }
 miden-objects = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "main", version = "0.1", default-features = false  }
+miden-client = { git = "https://github.com/0xPolygonMiden/miden-client.git", branch = "main", version = "0.1.0", features= ["concurrent","testing"] }
 
 [dev-dependencies]
 
