@@ -90,33 +90,49 @@ export.play_check
     # balance, points will remain same
     push.CURRENT_TURN_INDEX exec.account::get_item
     # [0, 0, 0, current turn index]
-    dropw
-    dropw
-    dropw
+    drop
+    drop
+    drop
     # [current turn  index]
 
-    push.1
+    push.8
 
     add
-    # currnt_turn_index + 1
+    # currnt_turn_index + 8
 
     dup
-    # currnt_turn_index + 1, currnt_turn_index + 1
+    # currnt_turn_index + 8, currnt_turn_index + 8
     
     mem_store.0
-    #currnt_turn_index + 1
+    #currnt_turn_index + 8
 
     push.8
     add
-    # currnt_turn_index + 1 + 8
+    # currnt_turn_index + 8 + 8
 
-    loop.4
+    while
         if.account.pop.0 not
             # now we know that this is the index we need to use as the next player index
             push 8
             sub
             # currnt_turn_index + 1
             push.CURRENT_TURN.4
+
+            push.4
+            add
+            exec::account::get_item
+            drop drop drop
+            # [is fold]
+            if
+               mem_load.0 # player ka index 
+               push.CURRENT_TURN_INDEX # slot (player ka index )
+               exec::account::set_item 
+               push.0
+            else 
+                push.8
+                add
+            end
+
             exec.account::set_item 
             # return
         else    
