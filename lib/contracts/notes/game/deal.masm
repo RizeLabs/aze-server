@@ -5,6 +5,14 @@ use.miden::note
 use.miden::contracts::wallets::basic->wallet
 use.miden::contracts::poker::poker
 
+proc.receive_cards
+    call.account::set_item
+
+    # prepare stack for return
+    movup.4 drop movup.4 drop movup.4 drop
+end
+
+
 begin
     # All scripts start with the NOTE_SCRIPT_ROOT, you can drop it
     dropw 
@@ -18,11 +26,11 @@ begin
 
     push.0
     # since now the word is at position 0 and 1 for loading the first word we will push zero and then load the word      
-    mem_loadw push.100 call.poker::receive_cards # using call we are storing the cards in memory of the account context
+    mem_loadw push.100 exec.receive_cards # using call we are storing the cards in memory of the account context
 
     push.1
     # since now the word is at position 0 and 1 for loading the first word we will push one and then load the word 
-    mem_loadw push.101 call.poker::receive_cards
+    mem_loadw push.101 exec.receive_cards
 
     # Debugging https://0xpolygonmiden.github.io/miden-vm/user_docs/assembly/debugging.html
     #debug.stack
