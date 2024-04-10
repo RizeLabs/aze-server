@@ -96,8 +96,9 @@ export.play_check
     # [current turn  index]
 
     push.8
-
     add
+    push.44
+    mod
     # currnt_turn_index + 8
 
     dup
@@ -106,59 +107,90 @@ export.play_check
     mem_store.0
     #currnt_turn_index + 8
 
-    push.8
-    add
-    # currnt_turn_index + 8 + 8
-
-    while
-        if.account.pop.0 not
-            # now we know that this is the index we need to use as the next player index
-            push 8
-            sub
-            # currnt_turn_index + 1
-            push.CURRENT_TURN.4
-
-            push.4
+    while 
+        # now we know that this is the index we need to use as the next player index
+        # currnt_turn_index + 8
+        push.4
+        # 4, currnt_turn_index + 8
+        add
+        exec::account::get_item
+        drop drop drop
+        # [is fold]
+        if 
+        # checking is fold
+            mem_load.0 # player ka index 
+            push.CURRENT_TURN_INDEX # slot (player ka index )
+            exec::account::set_item 
+            push.0
+        else 
+            push.8
             add
-            exec::account::get_item
-            drop drop drop
-            # [is fold]
-            if
-               mem_load.0 # player ka index 
-               push.CURRENT_TURN_INDEX # slot (player ka index )
-               exec::account::set_item 
-               push.0
-            else 
-                push.8
-                add
-            end
-
-            exec.account::set_item 
-            # return
-        else    
-            # is fold of current player is 1 so they have already folded
-            push.11
-            add
-            push.44
-            mod
-            # currnt_turn_index + 1 + 8 + 11 % 44(total slots for playes)
-            # moving to next 
-
-
-
-
-
-
-    
-    
-
+        end
 end
 
 export.play_raise
 # update the turn 
+# raise the amount of current bet
 
 end
 
 export.play_fold
+    # make is_fold of player 1
+    # inc turn
+    push.CURRENT_TURN_INDEX
+    # [0, 0, 0, current_turn_index]
+
+    drop drop drop
+    # [current_turn_index]
+
+    push.4
+    # 4, current_turn_index
+    add
+    # [4+current_turn_index]
+    dup #for getting the get item
+    dup #for updating the turn
+    # [4+current_turn_index, 4+current_turn_index, 4+current_turn_index]
+
+    # getting the is_fold of player
+    exec::account::get_item
+    drop drop drop
+    #[is_fold, 4+current_turn_index, 4+current_turn_index]
+    
+    # making sure that is_fold is zero currently
+    dup
+    push.0
+    equal
+    
+    #[is_fold, 4+current_turn_index, 4+current_turn_index]
+    swap
+    exec::account::set_item
+    #[4+current_turn_index]
+
+    # adding 1 will give the slot of next player 
+    push.1
+    add
+    push.44
+    mod
+
+    #[next_turn_index]
+
+    while 
+
+        push.4
+        # 4, next_turn_index
+        add
+        exec::account::get_item
+        drop drop drop
+        # [is fold]
+        if 
+        # checking is fold
+            mem_load.0 # player ka index 
+            push.CURRENT_TURN_INDEX # slot (player ka index )
+            exec::account::set_item 
+            push.0
+        else 
+            push.8
+            add
+        end
 
 end
