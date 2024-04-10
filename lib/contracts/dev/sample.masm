@@ -85,64 +85,14 @@ export.play_call
     exec.account::set_item 
 end
 
-export.play_check
-    # update the turn 
-    # balance, points will remain same
-    push.CURRENT_TURN_INDEX exec.account::get_item
-    # [0, 0, 0, current turn index]
-    dropw
-    dropw
-    dropw
-    # [current turn  index]
+# export.play_check
 
-    push.1
+# end
 
-    add
-    # currnt_turn_index + 1
+# export.play_raise
 
-    dup
-    # currnt_turn_index + 1, currnt_turn_index + 1
-    
-    mem_store.0
-    #currnt_turn_index + 1
+# end
 
-    push.8
-    add
-    # currnt_turn_index + 1 + 8
+# export.play_fold
 
-    loop.4
-        if.account.pop.0 not
-            # now we know that this is the index we need to use as the next player index
-            push 8
-            sub
-            # currnt_turn_index + 1
-            push.CURRENT_TURN.4
-            exec.account::set_item 
-            # return
-        else    
-            # is fold of current player is 1 so they have already folded
-            push.11
-            add
-            push.44
-            mod
-            # currnt_turn_index + 1 + 8 + 11 % 44(total slots for playes)
-            # moving to next 
-
-
-
-
-
-
-    
-    
-
-end
-
-export.play_raise
-# update the turn 
-
-end
-
-export.play_fold
-
-end
+# end

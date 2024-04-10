@@ -318,3 +318,43 @@ pub fn get_account_with_custom_account_code(
 
     Account::new(account_id, account_vault, account_storage, account_code, Felt::new(1))
 }
+
+
+const fn account_id(account_type: AccountType, storage: AccountStorageType, rest: u64) -> u64 {
+    let mut id = 0;
+
+    id ^= (storage as u64) << 62;
+    id ^= (account_type as u64) << 60;
+    id ^= rest;
+
+    id
+}
+
+pub const ON_CHAIN: u64 = 0b00;
+pub const OFF_CHAIN: u64 = 0b10;
+
+#[repr(u64)]
+pub enum AccountStorageType {
+    OnChain = ON_CHAIN,
+    OffChain = OFF_CHAIN,
+}
+
+#[test]
+fn test_create_account_with_custom_account_code() {
+    pub const ACCOUNT_ID_SENDER: u64 = account_id(
+        AccountType::RegularAccountImmutableCode,
+        AccountStorageType::OffChain,
+        0b0001_1111,
+    );
+
+    let account_id = AccountId::try_from(ACCOUNT_ID_SENDER).unwrap();
+
+    let public_key = [Felt::new(1), Felt::new(2), Felt::new(3), Felt::new(4)];
+    let _account = get_account_with_custom_account_code(account_id, public_key, None);
+
+    //assert_eq!(account.id().root(), account_id.root());
+    //assert_eq!(account.code().root(), AccountCode::new(ModuleAst::default(), &TransactionKernel::assembler()).unwrap().root());
+    //assert_eq!(account.storage().root(), AccountStorage::new(vec![]).unwrap().root());
+    //assert_eq!(account.vault().root(), AssetVault::new(&[]).unwrap().root());
+    //assert_eq!(account.balance(), Felt::new(1));
+}

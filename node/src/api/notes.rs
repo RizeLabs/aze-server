@@ -1,6 +1,7 @@
 use aze_lib::accounts::{create_basic_aze_game_account, create_basic_aze_player_account, get_account_with_custom_account_code};
 use aze_lib::notes::create_deal_note;
 use aze_lib::utils::{get_new_key_pair_with_advice_map};
+use aze_lib::constants::DEFAULT_AUTH_SCRIPT;
 use crate::model::accounts::Task;
 use crate::model::accounts::TaskState;
 use miden_lib::AuthScheme;

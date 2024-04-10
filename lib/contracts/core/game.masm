@@ -1,155 +1,113 @@
-# winning hands
-const.ROYAL_FLUSH=100
-const.STRAIGHT_FLUSH=200
-const.FOUR_OF_A_KIND=300
-const.FULL_HOUSE=400
-const.FLUSH=500
-const.STRAIGHT=600
-const.THREE_OF_A_KIND=700
-const.TWO_PAIR=800
-const.ONE_PAIR=900
-const.HIGH_CARD=1000
+use.miden::contracts::poker::poker
 
-# actions
-const.CALL=100
-const.RAISE=200
-const.FOLD=300
-const.CHECK=400
-        
-# currently considering we have only four cards 
-proc.store_cards.3
-    mem_storew.2
-end
-        
-# loading four cards
-proc.load_cards.3
-   mem_loadw.2
-end 
-        
-# currently we are distributing cards to four players 
-proc.store_players.1
-    mem_storew.0
-end
-        
-# loading players id
-proc.load_players.1
-    mem_loadw.0
-end
+# index corresponding to the information saved
+const.PLAYER_1_PUB_KEY_INDEX=65 # use this index to find other player pub key slot index which would always be second to the player account id
+const.SMALL_BLIND_INDEX=56
+const.BIG_BLIND_INDEX=57
+const.BUY_IN_INDEX=58
+const.NO_OF_PLAYERS_INDEX=59
+const.CURRENT_TURN_INDEX=60 # index of the player whose turn it is currently
+const.RAISER_INDEX=61
+const.CURRENT_TURN_PLAYER_PUB_KEY_INDEX=63 # need to check it's storage initially small blind public key on slot 62
+const.CURRENT_PLAYER_PUB_KEY_INDEX=62 # at 63 we stored pub key for current player (it will contain)
+const.HIGHEST_BET_SLOT_INDEX=64 # highest bet amount which player will try to match with call
 
-proc.store_player_hands.2
-    mem_storew.1
-end
+# game events 
+# TODO: fix some storage for the value corresponding to these events 
+const.PLAYER_BETTED_AMOUNT=169 # check slot (169 - 100) 
+const.NEXT_PLAYER_TURN=170 # check slot (170 - 100)
+const.CARD_REVEALED=171 # check slot (171 - 100)
+const.NEW_HIGHEST_BET=172 # check slot (172 - 100)
+const.BALANCE_UPDATED=173 # check slot (173 - 100)
+const.PLAYER_ACTION=174 # check slot (174 - 100)
+const.GAME_ENDED=175 # check slot (175 - 100)
 
-proc.load_player_hands.2
-    mem_loadw.1
-end
+# enable authentication for players (although accounts are custodial for now)
+export.poker_auth_tx_rpo_falcon512
+    # Get commitments to created notes
+    exec.tx::get_output_notes_hash
+    # => [OUTPUT_NOTES_HASH, ...]
 
-proc.player_1_score.5
-   loc_store.4
-end
+    # Get commitments to consumed notes
+    exec.tx::get_input_notes_hash
+    # => [INPUT_NOTES_HASH, OUTPUT_NOTES_HASH, ...]
 
-proc.load_player_1_score.5
-   loc_load.4
-end
+    # Get current nonce of the account and pad
+    exec.account::get_nonce push.0.0.0
+    # => [0, 0, 0, nonce, INPUT_NOTES_HASH, OUTPUT_NOTES_HASH, ...]
 
-proc.player_2_score.6
-   loc_store.5
-end
+    # Get current AccountID and pad
+    exec.account::get_id push.0.0.0
+    # => [0, 0, 0, account_id, 0, 0, 0, nonce, INPUT_NOTES_HASH, OUTPUT_NOTES_HASH, ...]
 
-proc.load_player_2_score.6
-   loc_load.5
-end
+    # Compute the message to be signed
+    # M = h(OUTPUT_NOTES_HASH, h(INPUT_NOTES_HASH, h(0, 0, 0, account_id, 0, 0, 0, nonce)))
+    hmerge hmerge hmerge
 
-proc.player_3_score.7
-   loc_store.6
+    # Get public key from account storage at pos 0 and verify signature
+    push.CURRENT_TURN_PLAYER_PUB_KEY_INDEX exec.account::get_item
+    # => [PUB_KEY, M]
+
+    # Verify the signature against the public key and the message. The procedure gets as
+    # inputs the hash of the public key and the hash of the message via the operand
+    # stack. The signature is provided via the advice stack. The signature is valid if and
+    # only if the procedure returns.
+    exec.rpo_falcon512::verify
+    # => []
+
+    # Update the nonce
+    push.1 exec.account::incr_nonce
+    # => []
 end
 
-proc.load_player_3_score.7
-   loc_load.6
+export.play_call
+
+    # although we will enforce this checks from frontend but it's go to have certain require here
+    # TODO: checks the player isn't folded 
+    # TODO: checks the player has enough amount for matching bet
+    # TODO: checks the first player can't go for check  
+
+    # loaded current player index 
+    push.CURRENT_TURN_PLAYER_PUB_KEY_INDEX exec::get_item
+    # => [0, 0, 0, pub key index of current player]
+    
+    # dropping three zeroes 
+    drop drop drop
+
+    # => [pub key index of current player]
+    push.2 add exec::get_item
+    # => [0, 0, 0, player last bet]
+    drop drop drop
+    # => [player last bet]
+    # when user wants to just call and match the bet
+    push.HIGHEST_BET_SLOT_INDEX exec.account::get_item 
+    # => [0, 0, 0, highest bet, player last bet] since we are currently storing everything in word 
+    drop drop drop
+    # => [0, 0, 0, highest bet, current bet]
+    drop drop drop
+    sub 
+    # => [highest bet - current bet] subtract this amount from player balance 
+    # => [difference]
+    push.CURRENT_TURN_PLAYER_PUB_KEY_INDEX
+    push.3 add exec.account::get_item
+    drop drop drop
+    # => [balance, difference]
+    sub
+    # => [balance - difference]
+    push.CURRENT_TURN_PLAYER_PUB_KEY_INDEX.3
+    # => updated player balance 
+    exec.account::set_item 
+
+    # TODO: need to add procedure for updating player turns
 end
 
-proc.player_4_score.8
-   loc_store.7
-end
+# need to setup asm build first for this 
+# export.poker::play_call
+# export.poker::play_raise
+# export.poker::play_fold
+# export.poker::play_check
 
-proc.load_player_4_score.8
-   loc_load.7
-end
 
-# [player, action_type, amount (in case of raise), next_turn]
-proc.store_player_action.1
-   mem_storew.0
-end
 
-proc.load_player_action.1
-    mem_loadw.0
-end
 
-export.allot_points
-    # total players
-    push.0xa700000000000009.0xb700000000000009.0xc700000000000009.0xd700000000000009
-    exec.store_players
 
-    # player hand
-    #    1000       600      800      300
-    push.HIGH_CARD.STRAIGHT.TWO_PAIR.FOUR_OF_A_KIND
-    exec.store_player_hands
-
-    # loading player hands
-    exec.load_player_hands
-
-    # doubling the 1 score
-    push.2 mul
-    exec.player_1_score
-
-    # doubling player 2 score 
-    push.2 mul
-    exec.player_2_score
-
-    # doubling the player 3 score 
-    push.2 mul
-    exec.player_3_score
-
-    # doubling the player 4 score
-    push.2 mul
-    exec.player_4_score
-
-    # loading scores
-    exec.load_player_1_score
-    exec.load_player_2_score
-    exec.load_player_3_score
-    exec.load_player_4_score
-end
-
-export.playhand
-    # for now pushing player info and action info
-    #    player             action amount next turn
-    push.0xa700000000000009.RAISE.50.1
-    # push.FOLD
-    # push.CHECK
-    # push.RAISE  
-    exec.store_player_action
-end
-        
-export.basic_aze_game_account
-    # for now denoting using four player ids 0xe700000000000000, 0xe700000000a000001, 0xe700000000000002, 0xe700000000000003
-    push.0xa700000000000009.0xb700000000000009.0xc700000000000009.0xd700000000000009
-    exec.store_players
-        
-    # need to send note with their card info to all the players 
-    # for now considering there are only four players 
-    push.1.2.3.4
-    exec.store_cards
-        
-    # loading player ids back in stack to start sending notes 
-    exec.load_players
-        
-    # loading cards back in stack 
-    exec.load_cards
-        
-    # iterate and send the card notes to all the players
-    repeat.4
-        # send note here 
-    end
-        
-end

@@ -1,12 +1,16 @@
-    use.miden::contracts::wallets::basic->basic_wallet
-    use.miden::contracts::poker::poker
-    use.miden::contracts::auth::basic->basic_eoa
-    use.miden::account
+use.miden::contracts::wallets::basic->basic_wallet
+use.miden::contracts::auth::basic->basic_eoa
+use.miden::account
 
-    export.basic_wallet::receive_asset
-    export.basic_wallet::send_asset
-    export.basic_wallet::receive_cards
-    export.basic_eoa::auth_tx_rpo_falcon512
-    # export.poker::receive_cards
+export.basic_wallet::receive_asset
+export.basic_wallet::send_asset
+export.basic_eoa::auth_tx_rpo_falcon512
+    
+export.receive_cards
+    call.account::set_item
+
+    # prepare stack for return
+    movup.4 drop movup.4 drop movup.4 drop
+end
 
     
