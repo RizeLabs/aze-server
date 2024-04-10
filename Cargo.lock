@@ -818,7 +818,7 @@ dependencies = [
 [[package]]
 name = "miden-lib"
 version = "0.1.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=main#69ec4dc4e1a6f78d3d370c6b3b2bd25b5887ebc8"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=main#02c01aea34ba2c53d741baeb3b233e79100f3b3a"
 dependencies = [
  "miden-assembly 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "miden-objects",
@@ -828,7 +828,7 @@ dependencies = [
 [[package]]
 name = "miden-objects"
 version = "0.1.1"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=main#69ec4dc4e1a6f78d3d370c6b3b2bd25b5887ebc8"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=main#02c01aea34ba2c53d741baeb3b233e79100f3b3a"
 dependencies = [
  "miden-assembly 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "miden-core 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -874,7 +874,7 @@ dependencies = [
 [[package]]
 name = "miden-tx"
 version = "0.1.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=main#69ec4dc4e1a6f78d3d370c6b3b2bd25b5887ebc8"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=main#02c01aea34ba2c53d741baeb3b233e79100f3b3a"
 dependencies = [
  "miden-lib",
  "miden-objects",

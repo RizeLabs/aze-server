@@ -10,5 +10,7 @@ miden-lib = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch =
 miden-tx = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "main" }
 miden-objects = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "main", version = "0.1", default-features = false  }
 
+[dev-dependencies]
+
 [build-dependencies]
 miden-assembly = { git = "https://github.com/0xPolygonMiden/miden-vm.git", branch = "main" }
