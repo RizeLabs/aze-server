@@ -418,6 +418,7 @@ dependencies = [
  "miden-lib 0.1.0 (git+https://github.com/0xPolygonMiden/miden-base.git?branch=main)",
  "miden-objects 0.1.1 (git+https://github.com/0xPolygonMiden/miden-base.git?branch=main)",
  "miden-tx 0.1.0 (git+https://github.com/0xPolygonMiden/miden-base.git?branch=main)",
+ "uuid 1.8.0",
 ]
 
 [[package]]
@@ -1862,7 +1863,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "80b776a1b2dc779f5ee0641f8ade0125bc1298dd41a9a0c16d8bd57b42d222b1"
 dependencies = [
  "bytes",
- "heck 0.4.1",
+ "heck 0.5.0",
  "itertools",
  "log",
  "multimap",
@@ -2194,7 +2195,7 @@ dependencies = [
  "serde",
  "strum 0.24.1",
  "strum_macros 0.24.3",
- "uuid",
+ "uuid 0.8.2",
 ]
 
 [[package]]
@@ -2816,6 +2817,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bc5cf98d8186244414c848017f0e2676b3fcb46807f6668a97dfe67359a3c4b7"
 dependencies = [
  "getrandom",
+]
+
+[[package]]
+name = "uuid"
+version = "1.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a183cf7feeba97b4dd1c0d46788634f6221d87fa961b305bed08c851829efcc0"
+dependencies = [
+ "getrandom",
+ "serde",
 ]
 
 [[package]]

@@ -9,6 +9,8 @@ use miden_objects::{
     },
     BlockHeader, Felt, Word,
 };
+use std::{env::temp_dir, fs, time::Duration};
+// use uuid::Uuid;
 
 pub fn get_new_key_pair_with_advice_map() -> (Word, Vec<Felt>) {
     let keypair: KeyPair = KeyPair::new().unwrap();
@@ -19,4 +21,10 @@ pub fn get_new_key_pair_with_advice_map() -> (Word, Vec<Felt>) {
         pk_sk_bytes.iter().map(|a| Felt::new(*a as u64)).collect::<Vec<Felt>>();
 
     (pk, pk_sk_felts)
+}
+
+pub fn create_aze_store_path() -> std::path::PathBuf {
+    let mut temp_file = temp_dir();
+    temp_file.push(format!("{}.sqlite3", "random")); // for now don't know why uuid is not importing
+    temp_file
 }
