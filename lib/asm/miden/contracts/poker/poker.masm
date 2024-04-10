@@ -88,39 +88,52 @@ end
 export.play_check
     # update the turn 
     # balance, points will remain same
-    push.CURRENT_TURN_PLAYER_PUB_KEY_INDEX exec.account::get_item
-    # [0, 0, 0, current turn pub index]
-    dup
-    dup
-    dup
+    push.CURRENT_TURN_INDEX exec.account::get_item
+    # [0, 0, 0, current turn index]
+    dropw
+    dropw
+    dropw
+    # [current turn  index]
 
-    # [current turn pub index, current turn pub index, current turn pub index, current turn pub index]
+    push.1
 
-    push.PLAYER_1_INDEX exec.account::set_item
-    # [player 1 index, current turn pub index, current turn pub index, current turn pub index, current turn pub index]
+    add
+    # currnt_turn_index + 1
+
+    dup
+    # currnt_turn_index + 1, currnt_turn_index + 1
     
+    mem_store.0
+    #currnt_turn_index + 1
 
-    # check if the diff of top two elem is zero then next chance is player 2
-    lt
-    if.false
-        push.PLAYER_2_INDEX
-        push.CURRENT_TURN_PLAYER_PUB_KEY_INDEX exec.account::set_item
+    push.8
+    add
+    # currnt_turn_index + 1 + 8
+
+    loop.4
+        if.account.pop.0 not
+            # now we know that this is the index we need to use as the next player index
+            push 8
+            sub
+            # currnt_turn_index + 1
+            push.CURRENT_TURN.4
+            exec.account::set_item 
+            # return
+        else    
+            # is fold of current player is 1 so they have already folded
+            push.11
+            add
+            push.44
+            mod
+            # currnt_turn_index + 1 + 8 + 11 % 44(total slots for playes)
+            # moving to next 
+
+
+
+
+
+
     
-    else
-        lt
-        if.false
-            push.PLAYER_3_INDEX
-            push.CURRENT_TURN_PLAYER_PUB_KEY_INDEX exec.account::set_item
-        else
-            lt
-            if.false
-                push.PLAYER_4_INDEX
-                push.CURRENT_TURN_PLAYER_PUB_KEY_INDEX exec.account::set_item
-            else
-                lt
-                if.false
-                    push.PLAYER_1_INDEX
-                    push.CURRENT_TURN_PLAYER_PUB_KEY_INDEX exec.account::set_item
     
 
 end
