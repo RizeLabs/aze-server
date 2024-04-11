@@ -1,5 +1,6 @@
 use crate::accounts::{create_basic_aze_game_account, create_basic_aze_player_account};
-use crate::utils::create_aze_store_path;
+use crate::utils::{create_aze_store_path, load_config};
+use crate::constants::CLIENT_CONFIG_FILE_NAME;
 use miden_client::client::rpc::NodeRpcClient;
 use miden_client::{
     client::{
@@ -22,7 +23,7 @@ use miden_objects::{
 use miden_tx::DataStore;
 use rand::{rngs::ThreadRng, Rng};
 
-type AzeClient = Client<TonicRpcClient, SqliteStore>;
+pub type AzeClient = Client<TonicRpcClient, SqliteStore>;
 
 pub trait AzeGameMethods {
     fn new_game_account(
@@ -55,16 +56,20 @@ pub enum AzeAccountTemplate {
     },
 }
 
-fn create_aze_client() -> AzeClient {
-    let client_config = ClientConfig {
-        store: create_aze_store_path()
-            .into_os_string()
-            .into_string()
-            .unwrap()
-            .try_into()
-            .unwrap(),
-        rpc: RpcConfig::default(),
-    };
+pub fn create_aze_client() -> AzeClient {
+    // let client_config = ClientConfig {
+    //     store: create_aze_store_path()
+    //         .into_os_string()
+    //         .into_string()
+    //         .unwrap()
+    //         .try_into()
+    //         .unwrap(),
+    //     rpc: RpcConfig::default(),
+    // };
+
+    let mut current_dir = std::env::current_dir().map_err(|err| err.to_string()).unwrap();
+    current_dir.push(CLIENT_CONFIG_FILE_NAME);
+    let client_config = load_config(current_dir.as_path()).unwrap();
 
     let rpc_endpoint = client_config.rpc.endpoint.to_string();
     let store = SqliteStore::new((&client_config).into()).unwrap();
@@ -119,7 +124,7 @@ impl<N: NodeRpcClient, D: Store> AzeGameMethods for Client<N, D> {
         ).unwrap();
 
         // will do insert account later on since there is some type mismatch due to miden object crate
-        // self.insert_account(&account, Some(seed), &AuthInfo::RpoFalcon512(key_pair))?;
+        self.insert_account(&account, Some(seed), &AuthInfo::RpoFalcon512(key_pair))?;
         Ok((account, seed))
     }
 
@@ -149,7 +154,7 @@ impl<N: NodeRpcClient, D: Store> AzeGameMethods for Client<N, D> {
         ).unwrap();
 
         // will do insert account later on since there is some type mismatch due to miden object crate
-        // self.insert_account(&account, Some(seed), &AuthInfo::RpoFalcon512(key_pair))?;
+        self.insert_account(&account, Some(seed), &AuthInfo::RpoFalcon512(key_pair))?;
         Ok((account, seed))
     }
 }

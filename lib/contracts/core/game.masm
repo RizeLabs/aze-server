@@ -1,4 +1,7 @@
 use.miden::contracts::poker::poker
+use.miden::account
+use.miden::tx
+use.std::crypto::dsa::rpo_falcon512
 
 # index corresponding to the information saved
 const.PLAYER_1_PUB_KEY_INDEX=65 # use this index to find other player pub key slot index which would always be second to the player account id
@@ -68,14 +71,14 @@ export.play_call
     # TODO: checks the first player can't go for check  
 
     # loaded current player index 
-    push.CURRENT_TURN_PLAYER_PUB_KEY_INDEX exec::get_item
+    push.CURRENT_TURN_PLAYER_PUB_KEY_INDEX exec.account::get_item
     # => [0, 0, 0, pub key index of current player]
     
     # dropping three zeroes 
     drop drop drop
 
     # => [pub key index of current player]
-    push.2 add exec::get_item
+    push.2 add exec.account::get_item
     # => [0, 0, 0, player last bet]
     drop drop drop
     # => [player last bet]

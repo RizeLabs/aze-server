@@ -200,7 +200,6 @@ pub fn create_basic_aze_game_account(
     // initializing game storage with 52 cards
     let aze_game_account_storage = AccountStorage::new(game_constructor_item)?;
 
-
     // we need to fund the account with some fungible asset which it could use to rewards players 
     let account_vault = AssetVault::new(&[]).expect("error on empty vault");
 
