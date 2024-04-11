@@ -418,6 +418,7 @@ dependencies = [
  "miden-lib 0.1.0 (git+https://github.com/0xPolygonMiden/miden-base.git?branch=main)",
  "miden-objects 0.1.1 (git+https://github.com/0xPolygonMiden/miden-base.git?branch=main)",
  "miden-tx 0.1.0 (git+https://github.com/0xPolygonMiden/miden-base.git?branch=main)",
+ "rand",
  "uuid 1.8.0",
 ]
 
@@ -1476,6 +1477,7 @@ dependencies = [
  "miden-crypto",
  "miden-processor",
  "miden-verifier",
+ "serde",
  "winter-rand-utils",
 ]
 

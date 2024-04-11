@@ -1,3 +1,4 @@
+use crate::accounts::{create_basic_aze_game_account, create_basic_aze_player_account};
 use crate::utils::create_aze_store_path;
 use miden_client::client::rpc::NodeRpcClient;
 use miden_client::{
@@ -9,15 +10,37 @@ use miden_client::{
     },
     config::{ClientConfig, RpcConfig},
     errors::{ClientError, NodeRpcClientError},
-    store::{sqlite_store::SqliteStore, NoteFilter, Store, TransactionFilter},
+    store::{sqlite_store::SqliteStore, NoteFilter, Store, TransactionFilter, AuthInfo},
+};
+use miden_lib::AuthScheme;
+use miden_objects::{
+    accounts::{Account, AccountData, AccountId, AccountStub, AccountType, AuthData},
+    assets::TokenSymbol,
+    crypto::dsa::rpo_falcon512::KeyPair,
+    Felt, Word,
 };
 use miden_tx::DataStore;
+use rand::{rngs::ThreadRng, Rng};
 
 type AzeClient = Client<TonicRpcClient, SqliteStore>;
 
 pub trait AzeGameMethods {
-    fn new_aze_game_account(&mut self, template: AccountTemplate);
-    fn new_aze_player_account(&mut self, template: AccountTemplate);
+    fn new_game_account(
+        &mut self,
+        template: AzeAccountTemplate,
+    ) -> Result<(Account, Word), ClientError>;
+    fn new_aze_game_account(
+        &mut self,
+        mutable_code: bool,
+        rng: &mut ThreadRng,
+        account_storage_mode: AccountStorageMode,
+    ) -> Result<(Account, Word), ClientError>;
+    fn new_aze_player_account(
+        &mut self,
+        mutable_code: bool,
+        rng: &mut ThreadRng,
+        account_storage_mode: AccountStorageMode,
+    ) -> Result<(Account, Word), ClientError>;
 }
 
 pub enum AzeAccountTemplate {
@@ -49,8 +72,84 @@ fn create_aze_client() -> AzeClient {
     AzeClient::new(TonicRpcClient::new(&rpc_endpoint), store, executor_store).unwrap()
 }
 
-// impl<N: NodeRpcClient, D: Store> AzeGameMethods for Client<N, D> {
-//     fn new_aze_account() {
-//         println!("Creating new account");
-//     }
-// }
+impl<N: NodeRpcClient, D: Store> AzeGameMethods for Client<N, D> {
+    fn new_game_account(
+        &mut self,
+        template: AzeAccountTemplate,
+    ) -> Result<(Account, Word), ClientError> {
+        let mut rng = rand::thread_rng();
+
+        let account_and_seed = match template {
+            AzeAccountTemplate::PlayerAccount {
+                mutable_code,
+                storage_mode,
+            } => self.new_aze_player_account(mutable_code, &mut rng, storage_mode),
+            AzeAccountTemplate::GameAccount {
+                mutable_code,
+                storage_mode,
+            } => self.new_aze_game_account(mutable_code, &mut rng, storage_mode),
+        }?;
+
+        Ok(account_and_seed)
+    }
+
+    fn new_aze_game_account(
+        &mut self,
+        mutable_code: bool, // will remove it later on
+        rng: &mut ThreadRng,
+        account_storage_mode: AccountStorageMode,
+    ) -> Result<(Account, Word), ClientError> {
+        if let AccountStorageMode::OnChain = account_storage_mode {
+            todo!("Recording the account on chain is not supported yet");
+        }
+
+        let key_pair: KeyPair = KeyPair::new()?;
+
+        let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 {
+            pub_key: key_pair.public_key(),
+        };
+
+        // we need to use an initial seed to create the wallet account
+        let init_seed: [u8; 32] = rng.gen();
+
+        let (account, seed) = create_basic_aze_game_account(
+            init_seed,
+            auth_scheme,
+            AccountType::RegularAccountImmutableCode,
+        ).unwrap();
+
+        // will do insert account later on since there is some type mismatch due to miden object crate
+        // self.insert_account(&account, Some(seed), &AuthInfo::RpoFalcon512(key_pair))?;
+        Ok((account, seed))
+    }
+
+    fn new_aze_player_account(
+        &mut self,
+        mutable_code: bool,
+        rng: &mut ThreadRng,
+        account_storage_mode: AccountStorageMode,
+    ) -> Result<(Account, Word), ClientError> {
+        if let AccountStorageMode::OnChain = account_storage_mode {
+            todo!("Recording the account on chain is not supported yet");
+        }
+
+        let key_pair: KeyPair = KeyPair::new()?;
+
+        let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 {
+            pub_key: key_pair.public_key(),
+        };
+
+        // we need to use an initial seed to create the wallet account
+        let init_seed: [u8; 32] = rng.gen();
+
+        let (account, seed) = create_basic_aze_player_account(
+            init_seed,
+            auth_scheme,
+            AccountType::RegularAccountImmutableCode,
+        ).unwrap();
+
+        // will do insert account later on since there is some type mismatch due to miden object crate
+        // self.insert_account(&account, Some(seed), &AuthInfo::RpoFalcon512(key_pair))?;
+        Ok((account, seed))
+    }
+}
