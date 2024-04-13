@@ -175,7 +175,7 @@ impl<N: NodeRpcClient, D: Store> AzeGameMethods for Client<N, D> {
 pub enum AzeTransactionTemplate {
     SendCard{
         transaction_data: PaymentTransactionData,
-        inputs: &[Felt],
+        inputs: [Felt;4],
      }
 }
 

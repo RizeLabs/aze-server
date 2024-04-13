@@ -13,6 +13,9 @@ use miden_objects::{
 };
 use miden_tx::TransactionExecutor;
 
+use miden_objects::crypto::rand::RpoRandomCoin;
+use miden_objects::accounts::ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN;
+
 use actix_web::{
     error::ResponseError,
     get,
@@ -64,7 +67,7 @@ pub async fn create_aze_game_account() -> Result<Json<AccountCreationResponse>, 
     // after the dealing is done, the game id is returned
 
     let player_ids: Vec<Felt> = vec![Felt::new(1), Felt::new(2), Felt::new(3), Felt::new(4)];
-    let player_account_ids: Vec<AccountId> = player_ids.iter().map(|felt| felt.into()).collect();
+    let player_account_ids: Vec<AccountId> = player_ids.into_iter().map(|id| AccountId::try_from(id).unwrap()).collect();
     
     let mut client: AzeClient = create_aze_client();
 
@@ -85,22 +88,22 @@ pub async fn create_aze_game_account() -> Result<Json<AccountCreationResponse>, 
 
     let sample_card = [Felt::new(99), Felt::new(99), Felt::new(99), Felt::new(99)];
     let cards = [sample_card; 8];
-    for i in player_account_ids.len() {
-        let target_account_id = player_account_ids[i].into();
+    for (i,_) in player_account_ids.iter().enumerate() {
+        let target_account_id = player_account_ids[i];
         let note = create_deal_note(
             sender_account_id, 
             target_account_id, 
-            [!fungible_asset], 
+            [fungible_asset].to_vec(), 
             RpoRandomCoin::new([Felt::new(1), Felt::new(2), Felt::new(3), Felt::new(4)])
         ).unwrap();
 
-        let input_cards = cards[i].into();
+        let input_cards = cards[i];
         let payment_txn_data = PaymentTransactionData::new(fungible_asset, sender_account_id, target_account_id);
-        let transaction_template = AzeTransactionTemplate::SendCard { transaction_data: payment_txn_data, inputs: &input_cards};
+        // let transaction_template = AzeTransactionTemplate::SendCard { transaction_data: payment_txn_data, inputs: &input_cards};
         
-        let txn_result = client.new_transaction(transaction_template).unwrap();
+        // let txn_result = client.new_transaction(transaction_template).unwrap();
 
-        client.send_transaction(txn_result).await().unwrap();
+        // client.send_transaction(txn_result).await().unwrap();
     }
 
 
