@@ -1,5 +1,5 @@
 use aze_lib::accounts::{create_basic_aze_game_account, create_basic_aze_player_account};
-use aze_lib::client::{self, create_aze_client, AzeAccountTemplate, AzeClient, AzeGameMethods, AzeTransactionTemplate};
+use aze_lib::client::{self, create_aze_client, AzeAccountTemplate, AzeClient, AzeGameMethods, AzeTransactionTemplate, SendCardTransactionData};
 use aze_lib::notes::create_deal_note;
 use miden_client::client::transactions::{PaymentTransactionData, TransactionTemplate};
 use miden_lib::{transaction, AuthScheme};
@@ -11,6 +11,7 @@ use miden_objects::{
     transaction::TransactionArgs,
     Felt, Word, ONE, ZERO,
 };
+use miden_objects::crypto::rand::RpoRandomCoin;
 use miden_tx::TransactionExecutor;
 
 use actix_web::{
@@ -26,6 +27,7 @@ use actix_web::{
 use derive_more::Display;
 use serde::{Deserialize, Serialize};
 use miden_client::client::accounts::AccountStorageMode;
+use miden_objects::accounts::ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN;
 
 use crate::model::player;
 
@@ -87,20 +89,17 @@ pub async fn create_aze_game_account() -> Result<Json<AccountCreationResponse>, 
     let cards = [sample_card; 8];
     for i in player_account_ids.len() {
         let target_account_id = player_account_ids[i].into();
-        let note = create_deal_note(
-            sender_account_id, 
-            target_account_id, 
-            [!fungible_asset], 
-            RpoRandomCoin::new([Felt::new(1), Felt::new(2), Felt::new(3), Felt::new(4)])
-        ).unwrap();
+        
 
         let input_cards = cards[i].into();
-        let payment_txn_data = PaymentTransactionData::new(fungible_asset, sender_account_id, target_account_id);
-        let transaction_template = AzeTransactionTemplate::SendCard { transaction_data: payment_txn_data, inputs: &input_cards};
+        let payment_txn_data = SendCardTransactionData::new(fungible_asset, sender_account_id, target_account_id, cards[i]);
+        let transaction_template = AzeTransactionTemplate::SendCard(payment_txn_data);
         
-        let txn_result = client.new_transaction(transaction_template).unwrap();
+        // let txn_result = client.new_transaction(transaction_template).unwrap();
 
-        client.send_transaction(txn_result).await().unwrap();
+        // new_aze_send_card_transaction(t)
+
+        // client.send_transaction(txn_result).await.unwrap();
     }
 
 

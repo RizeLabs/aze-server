@@ -1,6 +1,8 @@
 use crate::accounts::{create_basic_aze_game_account, create_basic_aze_player_account};
 use crate::utils::{create_aze_store_path, load_config};
 use crate::constants::CLIENT_CONFIG_FILE_NAME;
+use figment::Result;
+use miden_client::client;
 use miden_client::client::rpc::NodeRpcClient;
 use miden_client::{
     client::{
@@ -26,8 +28,43 @@ use rand::{rngs::ThreadRng, Rng};
 
 pub type AzeClient = Client<TonicRpcClient, SqliteStore>;
 
+
+#[derive(Clone)]
+pub struct SendCardTransactionData {
+    asset: Asset,
+    sender_account_id: AccountId,
+    target_account_id: AccountId,
+    cards: &[Felt; 4],
+}
+
+impl SendCardTransactionData {
+    pub fn account_id(&self) -> AccountId {
+        self.sender_account_id
+    }
+    pub fn new(asset: Asset, sender_account_id: AccountId, target_account_id: AccountId, cards: &[Felt; 4]) -> Self {
+        Self {
+            asset,
+            sender_account_id,
+            target_account_id,
+            cards,
+        }
+    }
+}
+
 pub trait AzeGameMethods {
-    // fn new_aze_transaction(sender_account_id: AccountId, receiver_account_id: AccountId, assets: Vec<Asset>);
+    fn get_random_coin(&self) -> RpoRandomCoin;
+    fn new_send_card_transaction(
+        &mut self,
+        asset: Asset,
+        sender_account_id: AccountId,
+        target_account_id: AccountId,
+        cards: &[Felt; 4],
+    ) -> Result<(), ClientError>;
+    fn new_aze_send_card_transaction(
+        &mut self, 
+        transaction_template: AzeTransactionTemplate,
+        client: &mut AzeClient,
+    ) -> Result<(), ClientError>;
     fn new_game_account(
         &mut self,
         template: AzeAccountTemplate,
@@ -110,7 +147,7 @@ impl<N: NodeRpcClient, D: Store> AzeGameMethods for Client<N, D> {
             todo!("Recording the account on chain is not supported yet");
         }
 
-        let key_pair: KeyPair = KeyPair::new()?;
+        let key_pair: KeyPair = KeyPair::new().unwrap() ;
 
         let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 {
             pub_key: key_pair.public_key(),
@@ -126,7 +163,7 @@ impl<N: NodeRpcClient, D: Store> AzeGameMethods for Client<N, D> {
         ).unwrap();
 
         // will do insert account later on since there is some type mismatch due to miden object crate
-        self.insert_account(&account, Some(seed), &AuthInfo::RpoFalcon512(key_pair))?;
+        self.insert_account(&account, Some(seed), &AuthInfo::RpoFalcon512(key_pair));
         Ok((account, seed))
     }
 
@@ -140,7 +177,7 @@ impl<N: NodeRpcClient, D: Store> AzeGameMethods for Client<N, D> {
             todo!("Recording the account on chain is not supported yet");
         }
 
-        let key_pair: KeyPair = KeyPair::new()?;
+        let key_pair: KeyPair = KeyPair::new().unwrap();
 
         let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 {
             pub_key: key_pair.public_key(),
@@ -156,40 +193,78 @@ impl<N: NodeRpcClient, D: Store> AzeGameMethods for Client<N, D> {
         ).unwrap();
 
         // will do insert account later on since there is some type mismatch due to miden object crate
-        self.insert_account(&account, Some(seed), &AuthInfo::RpoFalcon512(key_pair))?;
+        self.insert_account(&account, Some(seed), &AuthInfo::RpoFalcon512(key_pair));
         Ok((account, seed))
     }
 
-    // fn new_aze_transaction(
-    //     sender_account_id: AccountId,
-    //     receiver_account_id: AccountId,
-    //     assets: Vec<Asset>,
-    //     mut rng: FeltRng
-    // ) {
-    //     let new_note = create_deal_note(sender_account_id, receiver_account_id, assets, rng).unwrap();
+    fn new_aze_send_card_transaction(
+        &mut self,
+        transaction_template: AzeTransactionTemplate,
+        client: &mut AzeClient,
+    ) -> Result<(), ClientError> {
 
-    // }
+        match transaction_template {
+            AzeTransactionTemplate::SendCard(AzeTransactionTemplate {
+                asset: fungible_asset,
+                sender_account_id,
+                target_account_id,
+                cards,
+            }) => self.new_send_card_transaction(fungible_asset, sender_account_id, target_account_id, cards),
+            
+        }
+         
+
+        // let created_note = create_send_card_note(
+        //     sender_account_id,
+        //     target_account_id,
+        //     transaction_template.
+        //     vec![fungible_asset],
+        //     random_coin,
+        // )?;
+
+         
+        // client.new_transaction(transaction_template)
+         
+
+         Ok(())
+
+    }
+
+
+    fn new_send_card_transaction(
+        &mut self,
+        asset: Asset,
+        sender_account_id: AccountId,
+        target_account_id: AccountId,
+        cards: &[Felt; 4],
+    ) -> Result<(), ClientError> {
+        // let random_coin = 
+        Ok(())    
+    }
+
+    fn get_random_coin(&self) -> RpoRandomCoin {
+        // TODO: Initialize coin status once along with the client and persist status for retrieval
+        let mut rng = rand::thread_rng();
+        let coin_seed: [u64; 4] = rng.gen();
+
+        RpoRandomCoin::new(coin_seed.map(Felt::new))
+    }
+    
+    
 }
 
 //implement a new transaction template
 pub enum AzeTransactionTemplate {
-    SendCard{
-        transaction_data: PaymentTransactionData,
-        inputs: &[Felt],
-     }
+    SendCard(SendCardTransactionData),
 }
 
 impl AzeTransactionTemplate {
     //returns the executor account id
     pub fn account_id(&self) -> AccountId {
         match self{
-            AzeTransactionTemplate::SendCard { 
-                transaction_data, 
-                inputs 
-            } => {
-                *transaction_data.account_id()
-            }
+            AzeTransactionTemplate::SendCard(p) => p.account_id(),
         }
     }
+
 }
 

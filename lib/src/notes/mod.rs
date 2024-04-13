@@ -11,7 +11,7 @@ use miden_objects::{
 };
 use miden_tx::TransactionExecutor;
 
-pub fn create_deal_note<R: FeltRng>(
+pub fn create_send_card_note<R: FeltRng>(
     sender_account_id: AccountId,
     target_account_id: AccountId,
     assets: Vec<Asset>,
