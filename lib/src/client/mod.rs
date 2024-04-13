@@ -14,6 +14,7 @@ use miden_client::{
     store::{sqlite_store::SqliteStore, NoteFilter, Store, TransactionFilter, AuthInfo},
 };
 use miden_lib::AuthScheme;
+use miden_objects::crypto::rand::FeltRng;
 use miden_objects::{
     accounts::{Account, AccountData, AccountId, AccountStub, AccountType, AuthData},
     assets::TokenSymbol,
@@ -26,6 +27,7 @@ use rand::{rngs::ThreadRng, Rng};
 pub type AzeClient = Client<TonicRpcClient, SqliteStore>;
 
 pub trait AzeGameMethods {
+    // fn new_aze_transaction(sender_account_id: AccountId, receiver_account_id: AccountId, assets: Vec<Asset>);
     fn new_game_account(
         &mut self,
         template: AzeAccountTemplate,
@@ -157,4 +159,37 @@ impl<N: NodeRpcClient, D: Store> AzeGameMethods for Client<N, D> {
         self.insert_account(&account, Some(seed), &AuthInfo::RpoFalcon512(key_pair))?;
         Ok((account, seed))
     }
+
+    // fn new_aze_transaction(
+    //     sender_account_id: AccountId,
+    //     receiver_account_id: AccountId,
+    //     assets: Vec<Asset>,
+    //     mut rng: FeltRng
+    // ) {
+    //     let new_note = create_deal_note(sender_account_id, receiver_account_id, assets, rng).unwrap();
+
+    // }
 }
+
+//implement a new transaction template
+pub enum AzeTransactionTemplate {
+    SendCard{
+        transaction_data: PaymentTransactionData,
+        inputs: &[Felt],
+     }
+}
+
+impl AzeTransactionTemplate {
+    //returns the executor account id
+    pub fn account_id(&self) -> AccountId {
+        match self{
+            AzeTransactionTemplate::SendCard { 
+                transaction_data, 
+                inputs 
+            } => {
+                *transaction_data.account_id()
+            }
+        }
+    }
+}
+
