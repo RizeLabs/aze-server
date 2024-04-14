@@ -3,14 +3,15 @@ use crate::utils::{create_aze_store_path, load_config};
 use crate::notes::create_send_card_note;
 use crate::constants::CLIENT_CONFIG_FILE_NAME;
 use miden_client::client::rpc::NodeRpcClient;
-use miden_client::store;
+use miden_client::{client, store};
 use miden_client::store::data_store::{self, ClientDataStore};
 
 use miden_client::{
     client::{
         accounts::{AccountStorageMode, AccountTemplate},
+        get_random_coin,
         rpc::TonicRpcClient,
-        transactions::{PaymentTransactionData, TransactionTemplate},
+        transactions::transaction_request::TransactionRequest,
         Client,
     },
     config::{ClientConfig, RpcConfig},
@@ -20,10 +21,11 @@ use miden_client::{
 
 use miden_lib::AuthScheme;
 use miden_objects::crypto::rand::FeltRng;
+use miden_objects::notes::NoteType;
 use miden_objects::{
     accounts::{Account, AccountData, AccountId, AccountStub, AccountType, AuthData},
     assets::TokenSymbol,
-    crypto::dsa::rpo_falcon512::KeyPair,
+    crypto::dsa::rpo_falcon512::SecretKey,
     Felt, Word,
 };
 use miden_objects::crypto::rand::RpoRandomCoin;
@@ -31,7 +33,7 @@ use miden_objects::assets::Asset;
 use miden_tx::{DataStore, TransactionExecutor};
 use rand::{rngs::ThreadRng, Rng};
 
-pub type AzeClient = Client<TonicRpcClient, SqliteStore>;
+pub type AzeClient = Client<TonicRpcClient, RpoRandomCoin, SqliteStore>;
 
 #[derive(Clone)]
 pub struct SendCardTransactionData {
@@ -114,14 +116,15 @@ pub fn create_aze_client() -> AzeClient {
     let mut current_dir = std::env::current_dir().map_err(|err| err.to_string()).unwrap();
     current_dir.push(CLIENT_CONFIG_FILE_NAME);
     let client_config = load_config(current_dir.as_path()).unwrap();
+    let rng = get_random_coin();
 
     let rpc_endpoint = client_config.rpc.endpoint.to_string();
     let store = SqliteStore::new((&client_config).into()).unwrap();
     let executor_store = SqliteStore::new((&client_config).into()).unwrap();
-    AzeClient::new(TonicRpcClient::new(&rpc_endpoint), store, executor_store).unwrap()
+    AzeClient::new(TonicRpcClient::new(&rpc_endpoint), rng, store, executor_store).unwrap()
 }
 
-impl<N: NodeRpcClient, D: Store> AzeGameMethods for Client<N, D> {
+impl<N: NodeRpcClient, R: FeltRng, S: Store> AzeGameMethods for Client<N, R, S> {
     
     // fn get_tx_executor(&self) -> TransactionExecutor<ClientDataStore<D>> {
     //     self
@@ -168,7 +171,7 @@ impl<N: NodeRpcClient, D: Store> AzeGameMethods for Client<N, D> {
             todo!("Recording the account on chain is not supported yet");
         }
 
-        let key_pair: KeyPair = KeyPair::new()?;
+        let key_pair = SecretKey::with_rng(rng);
 
         let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 {
             pub_key: key_pair.public_key(),
@@ -198,7 +201,7 @@ impl<N: NodeRpcClient, D: Store> AzeGameMethods for Client<N, D> {
             todo!("Recording the account on chain is not supported yet");
         }
 
-        let key_pair: KeyPair = KeyPair::new()?;
+        let key_pair = SecretKey::with_rng(rng);
 
         let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 {
             pub_key: key_pair.public_key(),
@@ -247,11 +250,15 @@ impl<N: NodeRpcClient, D: Store> AzeGameMethods for Client<N, D> {
             sender_account_id,
             target_account_id,
             [asset].to_vec(),
+            NoteType::Public,
             random_coin,
             cards
         )?;
 
-        let execution_store = self.store();
+        // let block_num = client.store.get_sync_height();
+
+
+        // let execution_store = self.store();
 
         // let mut executor = TransactionExecutor::new(ClientDataStore::new(execution_store));
 

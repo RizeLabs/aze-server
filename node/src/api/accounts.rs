@@ -1,13 +1,12 @@
 use aze_lib::accounts::{create_basic_aze_game_account, create_basic_aze_player_account};
 use aze_lib::client::{self, create_aze_client, AzeAccountTemplate, AzeClient, AzeGameMethods, AzeTransactionTemplate, SendCardTransactionData};
 use aze_lib::notes::create_send_card_note;
-use miden_client::client::transactions::{PaymentTransactionData, TransactionTemplate};
 use miden_lib::{transaction, AuthScheme};
 use miden_objects::{
     accounts::{Account, AccountId, AccountStorage, StorageSlotType},
     assembly::ProgramAst,
     assets::{Asset, AssetVault, FungibleAsset},
-    crypto::dsa::rpo_falcon512::{KeyPair, PublicKey},
+    crypto::dsa::rpo_falcon512::{SecretKey, PublicKey},
     transaction::TransactionArgs,
     Felt, Word, ONE, ZERO,
 };
@@ -66,8 +65,9 @@ pub async fn create_aze_game_account() -> Result<Json<AccountCreationResponse>, 
     // create notes so that players can consume the cards in it
     // after the dealing is done, the game id is returned
 
-    let player_ids: Vec<Felt> = vec![Felt::new(1), Felt::new(2), Felt::new(3), Felt::new(4)];
-    let player_account_ids: Vec<AccountId> = player_ids.into_iter().map(|id| AccountId::try_from(id).unwrap()).collect();
+    let player_ids: Vec<Felt> = vec![Felt::new(111111), Felt::new(2), Felt::new(3), Felt::new(4)];
+    // we will replace the  ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN with actual player ids felt later
+    let player_account_ids: Vec<AccountId> = player_ids.into_iter().map(|id| AccountId::try_from(ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN).unwrap()).collect();
     
     let mut client: AzeClient = create_aze_client();
 
@@ -92,7 +92,7 @@ pub async fn create_aze_game_account() -> Result<Json<AccountCreationResponse>, 
         let target_account_id = player_account_ids[i];
         
 
-        let input_cards = cards[i];
+        let input_cards = cards[i]; // don't you think the input cards should contain 8 felt -> 2 cards 
         let sendcard_txn_data = SendCardTransactionData::new(fungible_asset, sender_account_id, target_account_id, &input_cards);
         let transaction_template = AzeTransactionTemplate::SendCard(sendcard_txn_data);
 
@@ -120,7 +120,8 @@ pub async fn create_aze_game_account() -> Result<Json<AccountCreationResponse>, 
 pub async fn create_aze_player_account(
 ) -> Result<Json<AccountCreationResponse>, AccountCreationError> {
     use miden_objects::accounts::AccountType;
-    let key_pair: KeyPair = KeyPair::new().unwrap();
+    // TODO: get some randomness here to pass it in SecretKey::with_rng method 
+    let key_pair = SecretKey::new();
     let pub_key: PublicKey = key_pair.public_key();
     let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 { pub_key };
 
