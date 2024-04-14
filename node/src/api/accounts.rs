@@ -1,6 +1,7 @@
 use aze_lib::accounts::{create_basic_aze_game_account, create_basic_aze_player_account};
 use aze_lib::client::{self, create_aze_client, AzeAccountTemplate, AzeClient, AzeGameMethods, AzeTransactionTemplate, SendCardTransactionData};
 use aze_lib::notes::create_send_card_note;
+use aze_lib::executor::execute_tx_and_sync;
 use miden_lib::{transaction, AuthScheme};
 use miden_objects::{
     accounts::{Account, AccountId, AccountStorage, StorageSlotType},
@@ -88,16 +89,24 @@ pub async fn create_aze_game_account() -> Result<Json<AccountCreationResponse>, 
 
     let sample_card = [Felt::new(99), Felt::new(99), Felt::new(99), Felt::new(99)];
     let cards = [sample_card; 8];
+    println!("Start sending cards to players");
     for (i,_) in player_account_ids.iter().enumerate() {
         let target_account_id = player_account_ids[i];
+        println!("Target account id {:?}", target_account_id);
         
 
         let input_cards = cards[i]; // don't you think the input cards should contain 8 felt -> 2 cards 
         let sendcard_txn_data = SendCardTransactionData::new(fungible_asset, sender_account_id, target_account_id, &input_cards);
         let transaction_template = AzeTransactionTemplate::SendCard(sendcard_txn_data);
 
+        let txn_request = client.build_aze_send_card_tx_request(transaction_template).unwrap();
+        // println!("Transaction request: {:?} ", txn_request);
+        execute_tx_and_sync(&mut client, txn_request).await;
+        println!("Executed and synced with node");
+
         // new_aze_send_card_transaction(transaction_template, &mut client).unwrap();
-        let _ = client.new_aze_send_card_transaction(transaction_template).unwrap();
+        // TODO: Need to use build tx request api here
+        // let _ = client.new_aze_send_card_transaction(transaction_template).unwrap();
     
         
         // let txn_result = client.new_transaction(transaction_template).unwrap();

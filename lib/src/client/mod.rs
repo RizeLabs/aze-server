@@ -5,6 +5,8 @@ use crate::constants::CLIENT_CONFIG_FILE_NAME;
 use miden_client::client::rpc::NodeRpcClient;
 use miden_client::{client, store};
 use miden_client::store::data_store::{self, ClientDataStore};
+extern crate alloc;
+use alloc::collections::{BTreeMap, BTreeSet};
 
 use miden_client::{
     client::{
@@ -12,6 +14,7 @@ use miden_client::{
         get_random_coin,
         rpc::TonicRpcClient,
         transactions::transaction_request::TransactionRequest,
+        transactions::transaction_request,
         Client,
     },
     config::{ClientConfig, RpcConfig},
@@ -25,6 +28,7 @@ use miden_objects::notes::NoteType;
 use miden_objects::{
     accounts::{Account, AccountData, AccountId, AccountStub, AccountType, AuthData},
     assets::TokenSymbol,
+    assembly::ProgramAst,
     crypto::dsa::rpo_falcon512::SecretKey,
     Felt, Word,
 };
@@ -68,10 +72,11 @@ pub trait AzeGameMethods {
         target_account_id: AccountId,
         cards: &[Felt; 4],
     ) -> Result<(), ClientError>;
-    fn new_aze_send_card_transaction(
+    fn build_aze_send_card_tx_request(
         &mut self, 
+        // auth_info: AuthInfo,
         transaction_template: AzeTransactionTemplate,
-    ) -> Result<(), ClientError>;
+    ) -> Result<TransactionRequest, ClientError>;
     fn new_game_account(
         &mut self,
         template: AzeAccountTemplate,
@@ -230,10 +235,15 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> AzeGameMethods for Client<N, R, S> 
     //     let new_note = create_deal_note(sender_account_id, receiver_account_id, assets, rng).unwrap();
 
     // }
-    fn new_aze_send_card_transaction(
+    // TODO: include note_type as an argument here for now we are hardcoding it
+    fn build_aze_send_card_tx_request(
         &mut self,
+        // auth_info: AuthInfo,
         transaction_template: AzeTransactionTemplate,
-    ) -> Result<(), ClientError> {
+    ) -> Result<TransactionRequest, ClientError> {
+
+        let account_id = transaction_template.account_id();
+        let account_auth = self.store().get_account_auth(account_id)?;
 
         let (sender_account_id, target_account_id, cards, asset) = match transaction_template {
             AzeTransactionTemplate::SendCard(SendCardTransactionData {
@@ -254,6 +264,39 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> AzeGameMethods for Client<N, R, S> 
             random_coin,
             cards
         )?;
+
+        let recipient = created_note
+            .recipient_digest()
+            .iter()
+            .map(|x| x.as_int().to_string())
+            .collect::<Vec<_>>()
+            .join(".");
+    
+        let note_tag = created_note.metadata().tag().inner();
+
+        // TODO: remove this hardcoded note type
+        let note_type = NoteType::Public;
+
+        let tx_script = ProgramAst::parse(
+            &transaction_request::AUTH_SEND_ASSET_SCRIPT
+                .replace("{recipient}", &recipient)
+                .replace("{note_type}", &Felt::new(note_type as u64).to_string())
+                .replace("{tag}", &Felt::new(note_tag.into()).to_string())
+                .replace("{asset}", &prepare_word(&asset.into()).to_string()),
+        ) .expect("shipped MASM is well-formed");
+
+        let tx_script = {
+            let script_inputs = vec![account_auth.into_advice_inputs()];
+            // TODO: don't think it should work but let's try
+            self.compile_tx_script(tx_script, script_inputs, vec![])?
+        };
+
+        Ok(TransactionRequest::new(
+            sender_account_id,
+            BTreeMap::new(),
+            vec![created_note],
+            Some(tx_script),
+        ))
 
         // let block_num = client.store.get_sync_height();
 
@@ -296,7 +339,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> AzeGameMethods for Client<N, R, S> 
         // client.new_transaction(transaction_template)
 
 
-         Ok(())
 
     }
 
@@ -336,3 +378,6 @@ impl AzeTransactionTemplate {
 
 }
 
+pub(crate) fn prepare_word(word: &Word) -> String {
+    word.iter().map(|x| x.as_int().to_string()).collect::<Vec<_>>().join(".")
+}
