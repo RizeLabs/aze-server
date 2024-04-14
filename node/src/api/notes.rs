@@ -1,6 +1,6 @@
 use aze_lib::accounts::{create_basic_aze_game_account, create_basic_aze_player_account, get_account_with_custom_account_code};
 use aze_lib::client::create_aze_client;
-use aze_lib::notes::create_deal_note;
+use aze_lib::notes::create_send_card_note;
 use aze_lib::utils::{get_new_key_pair_with_advice_map};
 use aze_lib::constants::DEFAULT_AUTH_SCRIPT;
 use miden_client::client::transactions::{PaymentTransactionData, TransactionTemplate};
@@ -96,13 +96,13 @@ pub async fn deal() ->  Result<Json<DealingResponse>, DealingError> {
      get_account_with_custom_account_code(target_account_id, target_pub_key, None);
  
      // Create the note
-     let note = create_deal_note(
-         sender_account_id,
-         target_account_id,
-         vec![fungible_asset],
-         RpoRandomCoin::new([Felt::new(1), Felt::new(2), Felt::new(3), Felt::new(4)]),
-     )
-     .unwrap();
+    //  let note = create_deal_note(
+    //      sender_account_id,
+    //      target_account_id,
+    //      vec![fungible_asset],
+    //      RpoRandomCoin::new([Felt::new(1), Felt::new(2), Felt::new(3), Felt::new(4)]),
+    //  )
+    //  .unwrap();
  
      // CONSTRUCT AND EXECUTE TX (Success)
      // --------------------------------------------------------------------------------------------

@@ -11,11 +11,12 @@ use miden_objects::{
 };
 use miden_tx::TransactionExecutor;
 
-pub fn create_deal_note<R: FeltRng>(
+pub fn create_send_card_note<R: FeltRng>(
     sender_account_id: AccountId,
     target_account_id: AccountId,
     assets: Vec<Asset>,
     mut rng: R,
+    cards: [Felt; 4],
 ) -> Result<Note, NoteError> {
     let note_script = include_str!("../../contracts/notes/game/deal.masm");
     let note_assembler = TransactionKernel::assembler();

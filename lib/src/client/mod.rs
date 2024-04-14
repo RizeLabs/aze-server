@@ -1,7 +1,11 @@
 use crate::accounts::{create_basic_aze_game_account, create_basic_aze_player_account};
 use crate::utils::{create_aze_store_path, load_config};
+use crate::notes::create_send_card_note;
 use crate::constants::CLIENT_CONFIG_FILE_NAME;
 use miden_client::client::rpc::NodeRpcClient;
+use miden_client::store;
+use miden_client::store::data_store::{self, ClientDataStore};
+
 use miden_client::{
     client::{
         accounts::{AccountStorageMode, AccountTemplate},
@@ -13,6 +17,7 @@ use miden_client::{
     errors::{ClientError, NodeRpcClientError},
     store::{sqlite_store::SqliteStore, NoteFilter, Store, TransactionFilter, AuthInfo},
 };
+
 use miden_lib::AuthScheme;
 use miden_objects::crypto::rand::FeltRng;
 use miden_objects::{
@@ -23,7 +28,7 @@ use miden_objects::{
 };
 use miden_objects::crypto::rand::RpoRandomCoin;
 use miden_objects::assets::Asset;
-use miden_tx::DataStore;
+use miden_tx::{DataStore, TransactionExecutor};
 use rand::{rngs::ThreadRng, Rng};
 
 pub type AzeClient = Client<TonicRpcClient, SqliteStore>;
@@ -51,6 +56,8 @@ impl SendCardTransactionData {
 }
 
 pub trait AzeGameMethods {
+    // fn get_tx_executor(&self) -> TransactionExecutor<ClientDataStore<D>>;
+    fn store(&self) -> SqliteStore;
     fn get_random_coin(&self) -> RpoRandomCoin;
     fn new_send_card_transaction(
         &mut self,
@@ -62,7 +69,6 @@ pub trait AzeGameMethods {
     fn new_aze_send_card_transaction(
         &mut self, 
         transaction_template: AzeTransactionTemplate,
-        client: &mut AzeClient,
     ) -> Result<(), ClientError>;
     fn new_game_account(
         &mut self,
@@ -116,6 +122,22 @@ pub fn create_aze_client() -> AzeClient {
 }
 
 impl<N: NodeRpcClient, D: Store> AzeGameMethods for Client<N, D> {
+    
+    // fn get_tx_executor(&self) -> TransactionExecutor<ClientDataStore<D>> {
+    //     self
+    // }
+    
+    fn store(&self) -> SqliteStore {
+        let mut current_dir = std::env::current_dir().map_err(|err| err.to_string()).unwrap();
+        current_dir.push(CLIENT_CONFIG_FILE_NAME);
+        let client_config = load_config(current_dir.as_path()).unwrap();
+    
+        let rpc_endpoint = client_config.rpc.endpoint.to_string();
+        let store = SqliteStore::new((&client_config).into()).unwrap();
+        let executor_store = SqliteStore::new((&client_config).into()).unwrap();
+        executor_store
+    }
+
     fn new_game_account(
         &mut self,
         template: AzeAccountTemplate,
@@ -208,8 +230,41 @@ impl<N: NodeRpcClient, D: Store> AzeGameMethods for Client<N, D> {
     fn new_aze_send_card_transaction(
         &mut self,
         transaction_template: AzeTransactionTemplate,
-        client: &mut AzeClient,
     ) -> Result<(), ClientError> {
+
+        let (sender_account_id, target_account_id, cards, asset) = match transaction_template {
+            AzeTransactionTemplate::SendCard(SendCardTransactionData {
+                asset,
+                sender_account_id,
+                target_account_id,
+                cards,
+            }) => (sender_account_id, target_account_id, cards, asset),
+        };
+
+        let random_coin = self.get_random_coin();
+
+        let created_note = create_send_card_note(
+            sender_account_id,
+            target_account_id,
+            [asset].to_vec(),
+            random_coin,
+            cards
+        )?;
+
+        let execution_store = self.store();
+
+        // let mut executor = TransactionExecutor::new(ClientDataStore::new(execution_store));
+
+        // let data_store =
+        //      DataStore::with_existing(Some(target_account.clone()), Some(vec![created_note.clone()]));
+        
+        // let mock_data_store = 
+
+       
+
+
+
+
 
         // match transaction_template {
         //     AzeTransactionTemplate::SendCard(AzeTransactionTemplate {

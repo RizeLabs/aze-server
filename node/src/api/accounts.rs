@@ -1,6 +1,6 @@
 use aze_lib::accounts::{create_basic_aze_game_account, create_basic_aze_player_account};
-use aze_lib::client::{self, create_aze_client, AzeAccountTemplate, AzeClient, AzeGameMethods, AzeTransactionTemplate};
-use aze_lib::notes::create_deal_note;
+use aze_lib::client::{self, create_aze_client, AzeAccountTemplate, AzeClient, AzeGameMethods, AzeTransactionTemplate, SendCardTransactionData};
+use aze_lib::notes::create_send_card_note;
 use miden_client::client::transactions::{PaymentTransactionData, TransactionTemplate};
 use miden_lib::{transaction, AuthScheme};
 use miden_objects::{
@@ -90,16 +90,15 @@ pub async fn create_aze_game_account() -> Result<Json<AccountCreationResponse>, 
     let cards = [sample_card; 8];
     for (i,_) in player_account_ids.iter().enumerate() {
         let target_account_id = player_account_ids[i];
-        let note = create_deal_note(
-            sender_account_id, 
-            target_account_id, 
-            [fungible_asset].to_vec(), 
-            RpoRandomCoin::new([Felt::new(1), Felt::new(2), Felt::new(3), Felt::new(4)])
-        ).unwrap();
+        
 
         let input_cards = cards[i];
-        let payment_txn_data = PaymentTransactionData::new(fungible_asset, sender_account_id, target_account_id);
-        // let transaction_template = AzeTransactionTemplate::SendCard { transaction_data: payment_txn_data, inputs: &input_cards};
+        let sendcard_txn_data = SendCardTransactionData::new(fungible_asset, sender_account_id, target_account_id, &input_cards);
+        let transaction_template = AzeTransactionTemplate::SendCard(sendcard_txn_data);
+
+        // new_aze_send_card_transaction(transaction_template, &mut client).unwrap();
+        let _ = client.new_aze_send_card_transaction(transaction_template).unwrap();
+    
         
         // let txn_result = client.new_transaction(transaction_template).unwrap();
 
@@ -115,7 +114,7 @@ pub async fn create_aze_game_account() -> Result<Json<AccountCreationResponse>, 
     // println!("Account created: {:?}", game_account);
 
     Ok(Json(AccountCreationResponse { is_created: true }))
-}
+}       
 
 #[get("/v1/player/create-account")]
 pub async fn create_aze_player_account(
