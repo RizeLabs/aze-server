@@ -37,6 +37,13 @@ pub struct AccountCreationResponse {
     is_created: bool,
 }
 
+#[derive(Deserialize, Serialize)]
+pub struct PlayerAccountCreationResponse {
+    is_created: bool,
+    account_id: u64,
+
+}
+
 #[derive(Debug, Display)]
 pub enum AccountCreationError {
     AccountCreationFailed,
@@ -127,7 +134,7 @@ pub async fn create_aze_game_account() -> Result<Json<AccountCreationResponse>, 
 
 #[get("/v1/player/create-account")]
 pub async fn create_aze_player_account(
-) -> Result<Json<AccountCreationResponse>, AccountCreationError> {
+) -> Result<Json<PlayerAccountCreationResponse>, AccountCreationError> {
     use miden_objects::accounts::AccountType;
     // TODO: get some randomness here to pass it in SecretKey::with_rng method 
     let key_pair = SecretKey::new();
@@ -148,5 +155,9 @@ pub async fn create_aze_player_account(
     .unwrap();
     // println!("Account created: {:?}", game_account);
 
-    Ok(Json(AccountCreationResponse { is_created: true }))
+    Ok(Json(PlayerAccountCreationResponse {
+        is_created: true,
+        account_id: game_account.id().into(),
+    }))
+    // Ok(Json(AccountCreationResponse { is_created: true , }))
 }
