@@ -1,11 +1,7 @@
 use miden_objects::{
     accounts::{
-        Account, AccountCode, AccountId, AccountStorage, AccountType, SlotItem, StorageSlotType,
-    },
-    assets::Asset,
-    assembly::ModuleAst,
-    assets::AssetVault,
-    AccountError, Felt, FieldElement, Word, ZERO,
+        Account, AccountCode, AccountId, AccountStorage, AccountType, SlotItem, StorageSlot, StorageSlotType
+    }, assembly::ModuleAst, assets::{Asset, AssetVault}, AccountError, Felt, FieldElement, Word, ZERO
 };
 
 use miden_lib::{transaction::TransactionKernel, AuthScheme};
@@ -13,7 +9,7 @@ use miden_lib::{transaction::TransactionKernel, AuthScheme};
 fn construct_game_constructor_storage() -> Vec<SlotItem> {
     let mut game_info: Vec<SlotItem> = vec![];
     // generate 52 cards
-    let mut cards = vec![];
+    let mut cards: Vec<SlotItem> = vec![];
     // let mut player_pub_keys = vec![];
     let small_blind_amt = 5u8;
     let buy_in_amt = 100u8;
@@ -24,95 +20,98 @@ fn construct_game_constructor_storage() -> Vec<SlotItem> {
 
     for card_suit in 0..4 {
         for card_number in 1..13 {
-            cards.push((
-                slot_index, 
-                (
-                    StorageSlotType::Value { value_arity: 0 },
-                    [
+            let slot_item: SlotItem = SlotItem {
+                index: slot_index,
+                slot: StorageSlot {
+                    slot_type: StorageSlotType::Value { value_arity: 0 },
+                    value: [
                         Felt::from(card_suit as u8),
                         Felt::from(card_number as u8),
                         Felt::ZERO,
                         Felt::ZERO,
                     ],
-                ),
-            ));
+                }
+            };
+
+            cards.push(slot_item);
             slot_index += 1;
         }
     }
 
     let game_stats = vec![
-        (
-            slot_index, // storing next_turn here 
-            (
-                StorageSlotType::Value { value_arity: 0 },
-                [
-                    Felt::ZERO, // for now small blind will always be player 0 we will randomize it later
+       SlotItem {
+            index: slot_index, // storing next_turn here 
+            slot: StorageSlot {
+                slot_type: StorageSlotType::Value { value_arity: 0 },
+                value: [
                     Felt::ZERO,
-                    Felt::ZERO,
-                    Felt::ZERO,
-                ],
-            ),
-        ),
-        (
-            slot_index + 1, // storing small blind amt here 
-            (
-                StorageSlotType::Value { value_arity: 0 },
-                [
-                    Felt::from(small_blind_amt as u8),
                     Felt::ZERO,
                     Felt::ZERO,
                     Felt::ZERO,
                 ],
-            ),
-        ),
-        (
-            slot_index + 2,
-            (
-                StorageSlotType::Value { value_arity: 0 },
-                [
-                    Felt::from(small_blind_amt * 2 as u8), // big blind amt
+            },
+       },
+         SlotItem {
+                index: slot_index + 1, // storing small blind amt here 
+                slot: StorageSlot {
+                 slot_type: StorageSlotType::Value { value_arity: 0 },
+                 value: [
+                      Felt::from(small_blind_amt as u8),
+                      Felt::ZERO,
+                      Felt::ZERO,
+                      Felt::ZERO,
+                 ],
+                },
+            },
+        SlotItem {
+            index: slot_index + 2, // storing big blind amt here 
+            slot: StorageSlot {
+                slot_type: StorageSlotType::Value { value_arity: 0 },
+                value: [
+                    Felt::from(small_blind_amt * 2 as u8),
                     Felt::ZERO,
                     Felt::ZERO,
                     Felt::ZERO,
                 ],
-            ),
-        ),
-        (
-            slot_index + 3,
-            (
-                StorageSlotType::Value { value_arity: 0 },
-                [
-                    Felt::from(buy_in_amt as u8),  // buy in amt
+            },
+        },
+        SlotItem {
+            index: slot_index + 3, // storing buy in amt here 
+            slot: StorageSlot {
+                slot_type: StorageSlotType::Value { value_arity: 0 },
+                value: [
+                    Felt::from(buy_in_amt as u8),
                     Felt::ZERO,
                     Felt::ZERO,
                     Felt::ZERO,
                 ],
-            ),
-        ),
-        (
-            slot_index + 4,
-            (
-                StorageSlotType::Value { value_arity: 0 },
-                [
-                    Felt::from(no_of_players as u8),  // buy in amt
+            },
+        },
+        SlotItem {
+            index: slot_index + 4, // storing no of players here 
+            slot: StorageSlot {
+                slot_type: StorageSlotType::Value { value_arity: 0 },
+                value: [
+                    Felt::from(no_of_players as u8),
                     Felt::ZERO,
                     Felt::ZERO,
                     Felt::ZERO,
                 ],
-            ),
-        ),
-        (
-            slot_index + 5,
-            (
-                StorageSlotType::Value { value_arity: 0 },
-                [
-                    Felt::from(flop_index as u8),  // index of flop
+            },
+        },
+        SlotItem {
+            index: slot_index + 5, // storing flop index here 
+            slot: StorageSlot {
+                slot_type: StorageSlotType::Value { value_arity: 0 },
+                value: [
+                    Felt::from(flop_index as u8),
                     Felt::ZERO,
                     Felt::ZERO,
                     Felt::ZERO,
                 ],
-            ),
-        ),
+            },
+        }
+
         // (
         //     slot_index + 6,
         //     (
@@ -206,7 +205,7 @@ pub fn create_basic_aze_game_account(
     let account_seed = AccountId::get_account_seed(
         init_seed,
         account_type,
-        false,
+        miden_objects::accounts::AccountStorageType::OnChain,
         aze_game_account_code.root(),
         aze_game_account_storage.root(),
     )?;
@@ -253,20 +252,20 @@ pub fn create_basic_aze_player_account(
     let account_assembler = TransactionKernel::assembler();
     let aze_player_account_code =
         AccountCode::new(aze_player_account_code_ast.clone(), &account_assembler)?;
-
-    let aze_player_account_storage = AccountStorage::new(vec![(
-        0,
-        (
-            StorageSlotType::Value { value_arity: 0 },
-            storage_slot_0_data,
-        ),
-    )])?;
+    let aze_player_account_storage = AccountStorage::new(vec![SlotItem {
+        index: 0,
+        slot: StorageSlot {
+            slot_type: StorageSlotType::Value { value_arity: 0 },
+            value: storage_slot_0_data,
+        },
+    }
+    ])?;
     let account_vault = AssetVault::new(&[]).expect("error on empty vault");
 
     let account_seed = AccountId::get_account_seed(
         init_seed,
         account_type,
-        false,
+        miden_objects::accounts::AccountStorageType::OnChain,
         aze_player_account_code.root(),
         aze_player_account_storage.root(),
     )?;
@@ -299,14 +298,25 @@ pub fn get_account_with_custom_account_code(
     let account_assembler = TransactionKernel::assembler();
 
     let account_code = AccountCode::new(account_code_ast.clone(), &account_assembler).unwrap();
+    // let account_storage = AccountStorage::new(vec![
+    //     (
+    //         0,
+    //         (
+    //             StorageSlotType::Value { value_arity: 0 },
+    //             public_key,
+    //         ),
+    //     )
+    // ])
+    // .unwrap();
+
     let account_storage = AccountStorage::new(vec![
-        (
-            0,
-            (
-                StorageSlotType::Value { value_arity: 0 },
-                public_key,
-            ),
-        )
+        SlotItem {
+            index: 0,
+            slot: StorageSlot {
+                slot_type: StorageSlotType::Value { value_arity: 0 },
+                value: public_key,
+            },
+        }
     ])
     .unwrap();
 
