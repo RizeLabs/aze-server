@@ -291,6 +291,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> AzeGameMethods for Client<N, R, S> 
             self.compile_tx_script(tx_script, script_inputs, vec![])?
         };
 
+        println!("Created txn script");
+
         Ok(TransactionRequest::new(
             sender_account_id,
             BTreeMap::new(),
