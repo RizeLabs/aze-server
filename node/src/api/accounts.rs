@@ -1,20 +1,38 @@
 use aze_lib::accounts::{create_basic_aze_game_account, create_basic_aze_player_account};
-use aze_lib::client::{self, create_aze_client, AzeAccountTemplate, AzeClient, AzeGameMethods, AzeTransactionTemplate, SendCardTransactionData};
-use aze_lib::notes::create_send_card_note;
+use aze_lib::client::{
+    self, create_aze_client, AzeAccountTemplate, AzeClient, AzeGameMethods, AzeTransactionTemplate,
+    SendCardTransactionData,
+};
+use aze_lib::constants::BUY_IN_AMOUNT;
+use aze_lib::notes::{consume_notes, mint_note};
 use aze_lib::executor::execute_tx_and_sync;
+use aze_lib::notes::create_send_card_note;
 use miden_lib::{transaction, AuthScheme};
 use miden_objects::{
+    assets::TokenSymbol,
     accounts::{Account, AccountId, AccountStorage, StorageSlotType},
     assembly::ProgramAst,
     assets::{Asset, AssetVault, FungibleAsset},
-    crypto::dsa::rpo_falcon512::{SecretKey, PublicKey},
+    crypto::dsa::rpo_falcon512::{PublicKey, SecretKey},
     transaction::TransactionArgs,
     Felt, Word, ONE, ZERO,
+    notes::{
+        Note, NoteAssets, NoteExecutionMode, NoteId, NoteInputs, NoteMetadata, NoteRecipient,
+        NoteScript, NoteTag, NoteType,
+    },
+    transaction::InputNote,
 };
+use miden_client::client:: {
+    accounts::{AccountTemplate, AccountStorageMode},
+    transactions::transaction_request::{
+        PaymentTransactionData, TransactionRequest, TransactionTemplate,
+    },
+};
+
 use miden_tx::TransactionExecutor;
 
-use miden_objects::crypto::rand::RpoRandomCoin;
 use miden_objects::accounts::ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN;
+use miden_objects::crypto::rand::RpoRandomCoin;
 
 use actix_web::{
     error::ResponseError,
@@ -28,7 +46,6 @@ use actix_web::{
 };
 use derive_more::Display;
 use serde::{Deserialize, Serialize};
-use miden_client::client::accounts::AccountStorageMode;
 
 use crate::model::player;
 
@@ -41,7 +58,6 @@ pub struct AccountCreationResponse {
 pub struct PlayerAccountCreationResponse {
     is_created: bool,
     account_id: u64,
-
 }
 
 #[derive(Debug, Display)]
@@ -65,19 +81,32 @@ impl ResponseError for AccountCreationError {
     }
 }
 
+// TODO: pass account id of the players as request object in this game
 #[get("/v1/game/create-account")]
 pub async fn create_aze_game_account() -> Result<Json<AccountCreationResponse>, AccountCreationError>
 {
-    //it will get the player accounts id: Felt
-    // then create the game account 
-    // create notes so that players can consume the cards in it
-    // after the dealing is done, the game id is returned
-
-    let player_ids: Vec<Felt> = vec![Felt::new(111111), Felt::new(2), Felt::new(3), Felt::new(4)];
-    // we will replace the  ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN with actual player ids felt later
-    let player_account_ids: Vec<AccountId> = player_ids.into_iter().map(|id| AccountId::try_from(ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN).unwrap()).collect();
-    
     let mut client: AzeClient = create_aze_client();
+
+    // TODO: creating player just for testing purposes 
+    let (player_account, _) = client.new_game_account(AzeAccountTemplate::PlayerAccount {
+        mutable_code: false,
+        storage_mode: AccountStorageMode::Local, // for now
+    }).unwrap();
+
+    let (faucet_account, _) = client
+        .new_account(AccountTemplate::FungibleFaucet {
+            token_symbol: TokenSymbol::new("MATIC").unwrap(),
+            decimals: 8,
+            max_supply: 1_000_000_000,
+            storage_mode: AccountStorageMode::Local,
+        })
+        .unwrap();
+
+    let faucet_account_id = faucet_account.id();
+    let fungible_asset = FungibleAsset::new(faucet_account_id, BUY_IN_AMOUNT).unwrap();
+
+    // TODO: get the player account ids from the request object
+    let player_account_ids = vec![player_account.id()];
 
     let (game_account, _) = client
         .new_game_account(AzeAccountTemplate::GameAccount {
@@ -85,58 +114,52 @@ pub async fn create_aze_game_account() -> Result<Json<AccountCreationResponse>, 
             storage_mode: AccountStorageMode::Local, // for now
         })
         .unwrap();
+
     let game_account_id = game_account.id();
     println!("Account created: {:?}", game_account_id);
-
-    // Create an asset
-    let faucet_id = AccountId::try_from(ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN).unwrap();
-    let fungible_asset: Asset = FungibleAsset::new(faucet_id, 100).unwrap().into();
+        
+    println!("First client consuming note");
+    let note =
+        mint_note(&mut client, game_account_id, faucet_account_id, NoteType::Public).await;
+    println!("Minted note");
+        consume_notes(&mut client, game_account_id, &[note]).await;
+    println!("Player account consumed note");
 
     let sender_account_id = game_account_id;
 
     let sample_card = [Felt::new(99), Felt::new(99), Felt::new(99), Felt::new(99)];
     let cards = [sample_card; 8];
     println!("Start sending cards to players");
-    for (i,_) in player_account_ids.iter().enumerate() {
+    for (i, _) in player_account_ids.iter().enumerate() {
         let target_account_id = player_account_ids[i];
         println!("Target account id {:?}", target_account_id);
-        
 
-        let input_cards = cards[i]; // don't you think the input cards should contain 8 felt -> 2 cards 
-        let sendcard_txn_data = SendCardTransactionData::new(fungible_asset, sender_account_id, target_account_id, &input_cards);
+        let input_cards = cards[i]; // don't you think the input cards should contain 8 felt -> 2 cards
+        let sendcard_txn_data = SendCardTransactionData::new(
+            Asset::Fungible(fungible_asset),
+            sender_account_id,
+            target_account_id,
+            &input_cards,
+        );
         let transaction_template = AzeTransactionTemplate::SendCard(sendcard_txn_data);
 
-        let txn_request = client.build_aze_send_card_tx_request(transaction_template).unwrap();
-        // println!("Transaction request: {:?} ", txn_request);
+        let txn_request = client
+            .build_aze_send_card_tx_request(transaction_template)
+            .unwrap();
+
         execute_tx_and_sync(&mut client, txn_request).await;
         println!("Executed and synced with node");
-
-        // new_aze_send_card_transaction(transaction_template, &mut client).unwrap();
-        // TODO: Need to use build tx request api here
-        // let _ = client.new_aze_send_card_transaction(transaction_template).unwrap();
-    
-        
-        // let txn_result = client.new_transaction(transaction_template).unwrap();
-
-        // client.send_transaction(txn_result).await().unwrap();
     }
 
-
-
-    // println!("Account by this client {:?} ", client.get_accounts());
-    // let val = game_account.storage().get_item(1);
-    // println!("Account storage value: {:?}", val);
-
-    // println!("Account created: {:?}", game_account);
-
+    // TODO: define appropriate response types 
     Ok(Json(AccountCreationResponse { is_created: true }))
-}       
+}
 
 #[get("/v1/player/create-account")]
 pub async fn create_aze_player_account(
 ) -> Result<Json<PlayerAccountCreationResponse>, AccountCreationError> {
     use miden_objects::accounts::AccountType;
-    // TODO: get some randomness here to pass it in SecretKey::with_rng method 
+    // TODO: get some randomness here to pass it in SecretKey::with_rng method
     let key_pair = SecretKey::new();
     let pub_key: PublicKey = key_pair.public_key();
     let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 { pub_key };
@@ -153,11 +176,9 @@ pub async fn create_aze_player_account(
         AccountType::RegularAccountImmutableCode,
     )
     .unwrap();
-    // println!("Account created: {:?}", game_account);
 
     Ok(Json(PlayerAccountCreationResponse {
         is_created: true,
         account_id: game_account.id().into(),
     }))
-    // Ok(Json(AccountCreationResponse { is_created: true , }))
 }

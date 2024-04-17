@@ -7,11 +7,14 @@ use miden_client::{
 
 pub async fn execute_tx_and_sync(client: &mut AzeClient, tx_request: TransactionRequest) {
     println!("Executing transaction...");
-    let transaction_execution_result = client.new_transaction(tx_request).unwrap();
+    client.sync_state().await.unwrap();
+    let transaction_execution_result = client.new_transaction(tx_request.clone()).unwrap();
+    println!("Got execution result");
     let transaction_id = transaction_execution_result.executed_transaction().id();
 
     println!("Sending transaction to node");
     client.submit_transaction(transaction_execution_result).await.unwrap();
+    println!("Transaction sent to node");
 
     // wait until tx is committed
     loop {

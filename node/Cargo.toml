@@ -5,15 +5,20 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[[test]]
+name = "integration"
+path = "tests/integration/main.rs"
+
 [dependencies]
 actix-web = "^4"
-uuid = { version = "^0.8", features = ["v4"] }
+uuid = { version = "1.6.1", features = ["serde", "v4"], optional = true }
 serde = { version = "^1", features = ["derive"] }
 env_logger = "0.8"
 log = "^0.4"
 strum_macros = "^0.24"
 strum = { version = "^0.24", features = ["derive"] }
 derive_more = "^0.99"
+tokio = { version = "1.29", features = ["rt-multi-thread", "net", "macros"] }
 aze-lib = { path = "../lib" }
 miden-lib = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "main", version = "0.2", features= ["concurrent","testing"] }
 miden-tx = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "main", version = "0.2" }
