@@ -28,3 +28,6 @@ miden-objects = { version = "0.2", features = ["serde"] }
 
 [build-dependencies]
 miden-assembly = { git = "https://github.com/0xPolygonMiden/miden-vm.git", branch = "main" }
+
+[dev-dependencies]
+miden-crypto = { version = "0.9", default-features = false }

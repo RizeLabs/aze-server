@@ -1,4 +1,4 @@
-use aze_lib::accounts::{create_basic_aze_game_account, create_basic_aze_player_account, get_account_with_custom_account_code};
+use aze_lib::accounts::{create_basic_aze_game_account, create_basic_aze_player_account};
 use aze_lib::client::create_aze_client;
 use aze_lib::notes::create_send_card_note;
 use aze_lib::utils::{get_new_key_pair_with_advice_map};
@@ -16,11 +16,6 @@ use miden_objects::{
     Felt, Word, ONE, ZERO,
 };
 use miden_tx::TransactionExecutor;
-// use miden_mock::mock::account::{
-//     ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN,
-//     ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_ON_CHAIN, ACCOUNT_ID_SENDER, DEFAULT_AUTH_SCRIPT,
-// };
-
 use actix_web::{
     error::ResponseError,
     get,

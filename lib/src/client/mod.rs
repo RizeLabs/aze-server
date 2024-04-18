@@ -44,14 +44,14 @@ pub struct SendCardTransactionData {
     asset: Asset,
     sender_account_id: AccountId,
     target_account_id: AccountId,
-    cards: [Felt; 4],
+    cards: [[Felt; 4]; 2],
 }
 
 impl SendCardTransactionData {
     pub fn account_id(&self) -> AccountId {
         self.sender_account_id
     }
-    pub fn new(asset: Asset, sender_account_id: AccountId, target_account_id: AccountId, cards: &[Felt; 4]) -> Self {
+    pub fn new(asset: Asset, sender_account_id: AccountId, target_account_id: AccountId, cards: &[[Felt; 4];2]) -> Self {
         Self {
             asset,
             sender_account_id,
@@ -70,7 +70,7 @@ pub trait AzeGameMethods {
         asset: Asset,
         sender_account_id: AccountId,
         target_account_id: AccountId,
-        cards: &[Felt; 4],
+        cards: &[[Felt; 4]; 2],
     ) -> Result<(), ClientError>;
     fn build_aze_send_card_tx_request(
         &mut self, 
@@ -108,16 +108,6 @@ pub enum AzeAccountTemplate {
 }
 
 pub fn create_aze_client() -> AzeClient {
-    // let client_config = ClientConfig {
-    //     store: create_aze_store_path()
-    //         .into_os_string()
-    //         .into_string()
-    //         .unwrap()
-    //         .try_into()
-    //         .unwrap(),
-    //     rpc: RpcConfig::default(),
-    // };
-
     let mut current_dir = std::env::current_dir().map_err(|err| err.to_string()).unwrap();
     current_dir.push(CLIENT_CONFIG_FILE_NAME);
     let client_config = load_config(current_dir.as_path()).unwrap();
@@ -131,17 +121,11 @@ pub fn create_aze_client() -> AzeClient {
 
 impl<N: NodeRpcClient, R: FeltRng, S: Store> AzeGameMethods for Client<N, R, S> {
     
-    // fn get_tx_executor(&self) -> TransactionExecutor<ClientDataStore<D>> {
-    //     self
-    // }
-    
     fn store(&self) -> SqliteStore {
         let mut current_dir = std::env::current_dir().map_err(|err| err.to_string()).unwrap();
         current_dir.push(CLIENT_CONFIG_FILE_NAME);
         let client_config = load_config(current_dir.as_path()).unwrap();
     
-        let rpc_endpoint = client_config.rpc.endpoint.to_string();
-        let store = SqliteStore::new((&client_config).into()).unwrap();
         let executor_store = SqliteStore::new((&client_config).into()).unwrap();
         executor_store
     }
@@ -226,15 +210,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> AzeGameMethods for Client<N, R, S> 
         Ok((account, seed))
     }
 
-    // fn new_aze_transaction(
-    //     sender_account_id: AccountId,
-    //     receiver_account_id: AccountId,
-    //     assets: Vec<Asset>,
-    //     mut rng: FeltRng
-    // ) {
-    //     let new_note = create_deal_note(sender_account_id, receiver_account_id, assets, rng).unwrap();
-
-    // }
     // TODO: include note_type as an argument here for now we are hardcoding it
     fn build_aze_send_card_tx_request(
         &mut self,
@@ -299,48 +274,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> AzeGameMethods for Client<N, R, S> 
             Some(tx_script),
         ))
 
-        // let block_num = client.store.get_sync_height();
-
-
-        // let execution_store = self.store();
-
-        // let mut executor = TransactionExecutor::new(ClientDataStore::new(execution_store));
-
-        // let data_store =
-        //      DataStore::with_existing(Some(target_account.clone()), Some(vec![created_note.clone()]));
-        
-        // let mock_data_store = 
-
-       
-
-
-
-
-
-        // match transaction_template {
-        //     AzeTransactionTemplate::SendCard(AzeTransactionTemplate {
-        //         asset: fungible_asset,
-        //         sender_account_id,
-        //         target_account_id,
-        //         cards,
-        //     }) => self.new_send_card_transaction(fungible_asset, sender_account_id, target_account_id, cards),
-
-        // };
-
-
-        // let created_note = create_send_card_note(
-        //     sender_account_id,
-        //     target_account_id,
-        //     transaction_template.
-        //     vec![fungible_asset],
-        //     random_coin,
-        // )?;
-
-
-        // client.new_transaction(transaction_template)
-
-
-
     }
 
 
@@ -349,7 +282,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> AzeGameMethods for Client<N, R, S> 
         asset: Asset,
         sender_account_id: AccountId,
         target_account_id: AccountId,
-        cards: &[Felt; 4],
+        cards: &[[Felt; 4]; 2],
     ) -> Result<(), ClientError> {
         // let random_coin = 
         Ok(())    
