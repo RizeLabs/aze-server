@@ -2288,6 +2288,7 @@ dependencies = [
  "log",
  "miden-assembly 0.8.0",
  "miden-client",
+ "miden-crypto 0.9.1",
  "miden-lib 0.2.1 (git+https://github.com/0xPolygonMiden/miden-base.git?branch=main)",
  "miden-objects 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "miden-tx 0.2.1 (git+https://github.com/0xPolygonMiden/miden-base.git?branch=main)",

@@ -27,7 +27,7 @@ fn construct_game_constructor_storage(auth_scheme: AuthScheme) -> Vec<SlotItem> 
         slot: StorageSlot::new_value(storage_slot_0_data),
     };
 
-    for card_suit in 0..4 {
+    for card_suit in 1..5 {
         for card_number in 1..13 {
             let slot_item: SlotItem = SlotItem {
                 index: slot_index,
@@ -36,7 +36,7 @@ fn construct_game_constructor_storage(auth_scheme: AuthScheme) -> Vec<SlotItem> 
                     value: [
                         Felt::from(card_suit as u8),
                         Felt::from(card_number as u8),
-                        Felt::ZERO,
+                        Felt::ZERO, // denotes is encrypted 
                         Felt::ZERO,
                     ],
                 }
@@ -192,10 +192,6 @@ pub fn create_basic_aze_game_account(
         ));
     }
 
-    // let (_, storage_slot_0_data): (&str, Word) = match auth_scheme {
-    //     AuthScheme::RpoFalcon512 { pub_key } => ("basic::auth_tx_rpo_falcon512", pub_key.into()),
-    // };
-
     let aze_game_account_code_src: &str = include_str!("../../contracts/core/game.masm");
 
     let aze_game_account_code_ast = ModuleAst::parse(aze_game_account_code_src)
@@ -204,7 +200,6 @@ pub fn create_basic_aze_game_account(
     let aze_game_account_code =
         AccountCode::new(aze_game_account_code_ast.clone(), &account_assembler)?;
 
-    // TODO: for now let's skip setting game storage
     let game_constructor_item = construct_game_constructor_storage(auth_scheme);
 
     // initializing game storage with 52 cards
@@ -298,46 +293,46 @@ pub fn create_basic_aze_player_account(
 }
 
 
-pub fn get_account_with_custom_account_code(
-    account_id: AccountId,
-    public_key: Word,
-    assets: Option<Asset>,
-) -> Account {
-    let account_code_src = include_str!("../../contracts/core/player.masm");
+// pub fn get_account_with_custom_account_code(
+//     account_id: AccountId,
+//     public_key: Word,
+//     assets: Option<Asset>,
+// ) -> Account {
+//     let account_code_src = include_str!("../../contracts/core/player.masm");
 
-    let account_code_ast = ModuleAst::parse(account_code_src).unwrap();
-    let account_assembler = TransactionKernel::assembler();
+//     let account_code_ast = ModuleAst::parse(account_code_src).unwrap();
+//     let account_assembler = TransactionKernel::assembler();
 
-    let account_code = AccountCode::new(account_code_ast.clone(), &account_assembler).unwrap();
-    // let account_storage = AccountStorage::new(vec![
-    //     (
-    //         0,
-    //         (
-    //             StorageSlotType::Value { value_arity: 0 },
-    //             public_key,
-    //         ),
-    //     )
-    // ])
-    // .unwrap();
+//     let account_code = AccountCode::new(account_code_ast.clone(), &account_assembler).unwrap();
+//     // let account_storage = AccountStorage::new(vec![
+//     //     (
+//     //         0,
+//     //         (
+//     //             StorageSlotType::Value { value_arity: 0 },
+//     //             public_key,
+//     //         ),
+//     //     )
+//     // ])
+//     // .unwrap();
 
-    let account_storage = AccountStorage::new(vec![
-        SlotItem {
-            index: 0,
-            slot: StorageSlot {
-                slot_type: StorageSlotType::Value { value_arity: 0 },
-                value: public_key,
-            },
-        }
-    ])
-    .unwrap();
+//     let account_storage = AccountStorage::new(vec![
+//         SlotItem {
+//             index: 0,
+//             slot: StorageSlot {
+//                 slot_type: StorageSlotType::Value { value_arity: 0 },
+//                 value: public_key,
+//             },
+//         }
+//     ])
+//     .unwrap();
 
-    let account_vault = match assets {
-        Some(asset) => AssetVault::new(&[asset]).unwrap(),
-        None => AssetVault::new(&[]).unwrap(),
-    };
+//     let account_vault = match assets {
+//         Some(asset) => AssetVault::new(&[asset]).unwrap(),
+//         None => AssetVault::new(&[]).unwrap(),
+//     };
 
-    Account::new(account_id, account_vault, account_storage, account_code, Felt::new(1))
-}
+//     Account::new(account_id, account_vault, account_storage, account_code, Felt::new(1))
+// }
 
 
 const fn account_id(account_type: AccountType, storage: AccountStorageType, rest: u64) -> u64 {
@@ -359,22 +354,22 @@ pub enum AccountStorageType {
     OffChain = OFF_CHAIN,
 }
 
-#[test]
-fn test_create_account_with_custom_account_code() {
-    pub const ACCOUNT_ID_SENDER: u64 = account_id(
-        AccountType::RegularAccountImmutableCode,
-        AccountStorageType::OffChain,
-        0b0001_1111,
-    );
+// #[test]
+// fn test_create_account_with_custom_account_code() {
+//     pub const ACCOUNT_ID_SENDER: u64 = account_id(
+//         AccountType::RegularAccountImmutableCode,
+//         AccountStorageType::OffChain,
+//         0b0001_1111,
+//     );
 
-    let account_id = AccountId::try_from(ACCOUNT_ID_SENDER).unwrap();
+//     let account_id = AccountId::try_from(ACCOUNT_ID_SENDER).unwrap();
 
-    let public_key = [Felt::new(1), Felt::new(2), Felt::new(3), Felt::new(4)];
-    let _account = get_account_with_custom_account_code(account_id, public_key, None);
+//     let public_key = [Felt::new(1), Felt::new(2), Felt::new(3), Felt::new(4)];
+//     let _account = get_account_with_custom_account_code(account_id, public_key, None);
 
-    //assert_eq!(account.id().root(), account_id.root());
-    //assert_eq!(account.code().root(), AccountCode::new(ModuleAst::default(), &TransactionKernel::assembler()).unwrap().root());
-    //assert_eq!(account.storage().root(), AccountStorage::new(vec![]).unwrap().root());
-    //assert_eq!(account.vault().root(), AssetVault::new(&[]).unwrap().root());
-    //assert_eq!(account.balance(), Felt::new(1));
-}
+//     //assert_eq!(account.id().root(), account_id.root());
+//     //assert_eq!(account.code().root(), AccountCode::new(ModuleAst::default(), &TransactionKernel::assembler()).unwrap().root());
+//     //assert_eq!(account.storage().root(), AccountStorage::new(vec![]).unwrap().root());
+//     //assert_eq!(account.vault().root(), AssetVault::new(&[]).unwrap().root());
+//     //assert_eq!(account.balance(), Felt::new(1));
+// }
