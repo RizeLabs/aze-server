@@ -1,7 +1,9 @@
-use.miden::contracts::poker::poker
+# use.miden::contracts::poker::poker
 use.miden::account
 use.miden::tx
 use.std::crypto::dsa::rpo_falcon512
+use.miden::contracts::wallets::basic->basic_wallet
+use.miden::contracts::auth::basic
 
 # index corresponding to the information saved
 const.PLAYER_1_PUB_KEY_INDEX=65 # use this index to find other player pub key slot index which would always be second to the player account id
@@ -110,7 +112,9 @@ end
 # export.poker::play_fold
 # export.poker::play_check
 
+# some basic account methods 
 
-
-
+export.basic_wallet::receive_asset
+export.basic_wallet::send_asset
+export.basic::auth_tx_rpo_falcon512
 

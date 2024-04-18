@@ -2,7 +2,7 @@ use miden_objects::{
     accounts::{Account, AccountCode, AccountId, AccountStorage, SlotItem},
     assembly::{ModuleAst, ProgramAst},
     assets::{Asset, AssetVault, FungibleAsset},
-    crypto::{dsa::rpo_falcon512::SecretKey, utils::Serializable},
+    crypto::{dsa::rpo_falcon512::SecretKey, utils::Serializable, rand::FeltRng, rand::RpoRandomCoin},
     notes::{Note, NoteId, NoteScript},
     transaction::{
         ChainMmr, ExecutedTransaction, InputNote, InputNotes, ProvenTransaction, TransactionInputs,
@@ -21,6 +21,7 @@ use figment::{
     providers::{Format, Toml},
     Figment,
 };
+use::rand::Rng;
 
 // use uuid::Uuid;
 
@@ -45,4 +46,12 @@ pub fn load_config(config_file: &Path) -> Result<ClientConfig, String> {
     Figment::from(Toml::file(config_file))
         .extract()
         .map_err(|err| format!("Failed to load {} config file: {err}", config_file.display()))
+}
+
+pub fn get_random_coin() -> RpoRandomCoin {
+    // TODO: Initialize coin status once along with the client and persist status for retrieval
+    let mut rng = rand::thread_rng();
+    let coin_seed: [u64; 4] = rng.gen();
+
+    RpoRandomCoin::new(coin_seed.map(Felt::new))
 }

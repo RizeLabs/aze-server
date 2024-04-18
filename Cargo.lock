@@ -420,7 +420,7 @@ dependencies = [
  "miden-objects 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "miden-tx 0.2.1 (git+https://github.com/0xPolygonMiden/miden-base.git?branch=main)",
  "rand",
- "uuid 1.8.0",
+ "uuid",
 ]
 
 [[package]]
@@ -2294,7 +2294,8 @@ dependencies = [
  "serde",
  "strum 0.24.1",
  "strum_macros 0.24.3",
- "uuid 0.8.2",
+ "tokio",
+ "uuid",
 ]
 
 [[package]]
@@ -2908,15 +2909,6 @@ name = "utf8parse"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "711b9620af191e0cdc7468a8d14e709c3dcdb115b36f838e601583af800a370a"
-
-[[package]]
-name = "uuid"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc5cf98d8186244414c848017f0e2676b3fcb46807f6668a97dfe67359a3c4b7"
-dependencies = [
- "getrandom",
-]
 
 [[package]]
 name = "uuid"
