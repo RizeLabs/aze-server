@@ -6,7 +6,7 @@ use miden_objects::{
 
 use miden_lib::{transaction::TransactionKernel, AuthScheme};
 
-fn construct_game_constructor_storage() -> Vec<SlotItem> {
+fn construct_game_constructor_storage(auth_scheme: AuthScheme) -> Vec<SlotItem> {
     let mut game_info: Vec<SlotItem> = vec![];
     // generate 52 cards
     let mut cards: Vec<SlotItem> = vec![];
@@ -17,6 +17,15 @@ fn construct_game_constructor_storage() -> Vec<SlotItem> {
     let flop_index = no_of_players * 2 + 1;
 
     let mut slot_index = 1u8;
+
+    let (_, storage_slot_0_data): (&str, Word) = match auth_scheme {
+        AuthScheme::RpoFalcon512 { pub_key } => ("basic::auth_tx_rpo_falcon512", pub_key.into()),
+    };
+
+    let auth_slot = SlotItem {
+        index: slot_index - 1, // 0th slot
+        slot: StorageSlot::new_value(storage_slot_0_data),
+    };
 
     for card_suit in 0..4 {
         for card_number in 1..13 {
@@ -160,6 +169,7 @@ fn construct_game_constructor_storage() -> Vec<SlotItem> {
     // }
 
     // merghe player_id with card_suit
+    game_info.push(auth_slot);
     game_info.extend(cards);
     game_info.extend(game_stats);
     // game_info.extend(player_pub_keys);
@@ -182,9 +192,9 @@ pub fn create_basic_aze_game_account(
         ));
     }
 
-    let (_, storage_slot_0_data): (&str, Word) = match auth_scheme {
-        AuthScheme::RpoFalcon512 { pub_key } => ("basic::auth_tx_rpo_falcon512", pub_key.into()),
-    };
+    // let (_, storage_slot_0_data): (&str, Word) = match auth_scheme {
+    //     AuthScheme::RpoFalcon512 { pub_key } => ("basic::auth_tx_rpo_falcon512", pub_key.into()),
+    // };
 
     let aze_game_account_code_src: &str = include_str!("../../contracts/core/game.masm");
 
@@ -194,7 +204,8 @@ pub fn create_basic_aze_game_account(
     let aze_game_account_code =
         AccountCode::new(aze_game_account_code_ast.clone(), &account_assembler)?;
 
-    let game_constructor_item = construct_game_constructor_storage();
+    // TODO: for now let's skip setting game storage
+    let game_constructor_item = construct_game_constructor_storage(auth_scheme);
 
     // initializing game storage with 52 cards
     let aze_game_account_storage = AccountStorage::new(game_constructor_item)?;

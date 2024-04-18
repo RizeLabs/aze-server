@@ -7,3 +7,5 @@ pub const DEFAULT_AUTH_SCRIPT: &str = "
 ";
 
 pub const CLIENT_CONFIG_FILE_NAME: &str = "miden-client.toml";
+pub const BUY_IN_AMOUNT: u64 = 1000;
+pub const TRANSFER_AMOUNT: u64 = 59;

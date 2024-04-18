@@ -287,7 +287,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> AzeGameMethods for Client<N, R, S> 
 
         let tx_script = {
             let script_inputs = vec![account_auth.into_advice_inputs()];
-            // TODO: don't think it should work but let's try
             self.compile_tx_script(tx_script, script_inputs, vec![])?
         };
 
