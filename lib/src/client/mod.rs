@@ -44,14 +44,14 @@ pub struct SendCardTransactionData {
     asset: Asset,
     sender_account_id: AccountId,
     target_account_id: AccountId,
-    cards: [Felt; 4],
+    cards: [[Felt; 4]; 2],
 }
 
 impl SendCardTransactionData {
     pub fn account_id(&self) -> AccountId {
         self.sender_account_id
     }
-    pub fn new(asset: Asset, sender_account_id: AccountId, target_account_id: AccountId, cards: &[Felt; 4]) -> Self {
+    pub fn new(asset: Asset, sender_account_id: AccountId, target_account_id: AccountId, cards: &[[Felt; 4];2]) -> Self {
         Self {
             asset,
             sender_account_id,
@@ -70,7 +70,7 @@ pub trait AzeGameMethods {
         asset: Asset,
         sender_account_id: AccountId,
         target_account_id: AccountId,
-        cards: &[Felt; 4],
+        cards: &[[Felt; 4]; 2],
     ) -> Result<(), ClientError>;
     fn build_aze_send_card_tx_request(
         &mut self, 
@@ -126,8 +126,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> AzeGameMethods for Client<N, R, S> 
         current_dir.push(CLIENT_CONFIG_FILE_NAME);
         let client_config = load_config(current_dir.as_path()).unwrap();
     
-        let rpc_endpoint = client_config.rpc.endpoint.to_string();
-        let store = SqliteStore::new((&client_config).into()).unwrap();
         let executor_store = SqliteStore::new((&client_config).into()).unwrap();
         executor_store
     }
@@ -284,7 +282,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> AzeGameMethods for Client<N, R, S> 
         asset: Asset,
         sender_account_id: AccountId,
         target_account_id: AccountId,
-        cards: &[Felt; 4],
+        cards: &[[Felt; 4]; 2],
     ) -> Result<(), ClientError> {
         // let random_coin = 
         Ok(())    

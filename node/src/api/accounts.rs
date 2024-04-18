@@ -116,6 +116,7 @@ pub async fn create_aze_game_account() -> Result<Json<AccountCreationResponse>, 
         .unwrap();
 
     let game_account_id = game_account.id();
+    let game_account_storage = game_account.storage();
     println!("Account created: {:?}", game_account_id);
         
     println!("First client consuming note");
@@ -127,14 +128,21 @@ pub async fn create_aze_game_account() -> Result<Json<AccountCreationResponse>, 
 
     let sender_account_id = game_account_id;
 
-    let sample_card = [Felt::new(99), Felt::new(99), Felt::new(99), Felt::new(99)];
-    let cards = [sample_card; 8];
+    // let sample_card = [Felt::new(99), Felt::new(99), Felt::new(99), Felt::new(99)];
+    let mut cards = vec![];
+
+    for i in 1..2 * player_account_ids.len() + 1 {
+        let slot_index = i;
+        let card = game_account_storage.get_item(slot_index as u8);
+        cards.push(card.into());
+    }
+
     println!("Start sending cards to players");
     for (i, _) in player_account_ids.iter().enumerate() {
         let target_account_id = player_account_ids[i];
         println!("Target account id {:?}", target_account_id);
 
-        let input_cards = cards[i]; // don't you think the input cards should contain 8 felt -> 2 cards
+        let input_cards = [cards[i], cards[i + 1]];
         let sendcard_txn_data = SendCardTransactionData::new(
             Asset::Fungible(fungible_asset),
             sender_account_id,

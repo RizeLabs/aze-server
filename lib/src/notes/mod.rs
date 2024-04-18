@@ -16,7 +16,7 @@ pub fn create_send_card_note<R: FeltRng>(
     assets: Vec<Asset>,
     note_type: NoteType,
     mut rng: R,
-    cards: [Felt; 4],
+    cards: [[Felt; 4]; 2],
 ) -> Result<Note, NoteError> {
     let note_script = include_str!("../../contracts/notes/game/deal.masm");
     let note_assembler = TransactionKernel::assembler();
@@ -24,9 +24,8 @@ pub fn create_send_card_note<R: FeltRng>(
     let (note_script, _) = NoteScript::new(script_ast, &note_assembler)?;
 
     // for now hardcoding cards here
-    // TODO: For now hardcoding cards need to pass it as argument to this function
-    let card_1 = [Felt::new(99), Felt::new(99), Felt::new(99), Felt::new(99)];
-    let card_2 = [Felt::new(98), Felt::new(98), Felt::new(98), Felt::new(98)];
+    let card_1 = cards[0];
+    let card_2 = cards[1];
 
     // Here you can add the inputs to the note
     let inputs = [card_1.as_slice(), card_2.as_slice()].concat();

@@ -16,11 +16,6 @@ use miden_objects::{
     Felt, Word, ONE, ZERO,
 };
 use miden_tx::TransactionExecutor;
-// use miden_mock::mock::account::{
-//     ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN,
-//     ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_ON_CHAIN, ACCOUNT_ID_SENDER, DEFAULT_AUTH_SCRIPT,
-// };
-
 use actix_web::{
     error::ResponseError,
     get,
