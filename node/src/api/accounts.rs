@@ -6,6 +6,7 @@ use aze_lib::client::{
 use aze_lib::constants::BUY_IN_AMOUNT;
 use aze_lib::notes::{consume_notes, mint_note};
 use aze_lib::executor::execute_tx_and_sync;
+use aze_types::accounts::{AccountCreationError, AccountCreationResponse, PlayerAccountCreationResponse};
 use aze_lib::notes::create_send_card_note;
 use miden_lib::{transaction, AuthScheme};
 use miden_objects::{
@@ -28,12 +29,6 @@ use miden_client::client:: {
         PaymentTransactionData, TransactionRequest, TransactionTemplate,
     },
 };
-
-use miden_tx::TransactionExecutor;
-
-use miden_objects::accounts::ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN;
-use miden_objects::crypto::rand::RpoRandomCoin;
-
 use actix_web::{
     error::ResponseError,
     get,
@@ -44,42 +39,6 @@ use actix_web::{
     web::Path,
     HttpResponse,
 };
-use derive_more::Display;
-use serde::{Deserialize, Serialize};
-
-use crate::model::player;
-
-#[derive(Deserialize, Serialize)]
-pub struct AccountCreationResponse {
-    is_created: bool,
-}
-
-#[derive(Deserialize, Serialize)]
-pub struct PlayerAccountCreationResponse {
-    is_created: bool,
-    account_id: u64,
-}
-
-#[derive(Debug, Display)]
-pub enum AccountCreationError {
-    AccountCreationFailed,
-    BadTaskRequest,
-}
-
-impl ResponseError for AccountCreationError {
-    fn error_response(&self) -> HttpResponse {
-        HttpResponse::build(self.status_code())
-            .insert_header(ContentType::json())
-            .body(self.to_string())
-    }
-
-    fn status_code(&self) -> StatusCode {
-        match self {
-            AccountCreationError::AccountCreationFailed => StatusCode::FAILED_DEPENDENCY,
-            AccountCreationError::BadTaskRequest => StatusCode::BAD_REQUEST,
-        }
-    }
-}
 
 // TODO: pass account id of the players as request object in this game
 #[get("/v1/game/create-account")]
