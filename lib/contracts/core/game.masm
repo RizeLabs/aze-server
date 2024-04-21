@@ -16,7 +16,7 @@ const.RAISER_INDEX=61
 const.CURRENT_TURN_PLAYER_PUB_KEY_INDEX=63 # need to check it's storage initially small blind public key on slot 62
 const.CURRENT_PLAYER_PUB_KEY_INDEX=62 # at 63 we stored pub key for current player (it will contain)
 const.HIGHEST_BET_SLOT_INDEX=64 # highest bet amount which player will try to match with call
-
+const.CURRENT_PHASE=65 # whole game is divided into 4 phases
 # game events 
 # TODO: fix some storage for the value corresponding to these events 
 const.PLAYER_BETTED_AMOUNT=169 # check slot (169 - 100) 
@@ -111,6 +111,117 @@ end
 # export.poker::play_raise
 # export.poker::play_fold
 # export.poker::play_check
+
+export.play_raise
+
+    # raise amount = current player bet
+    push.CURRENT_PLAYER_PUB_KEY_INDEX drop drop drop
+    # [current turn pub key index]
+
+    push.2 add
+    # [current turn pub key index + 2, ]
+
+    exec.account.get_item drop drop drop
+    # [player_bet]
+
+    # Tasks need to be performed:
+    # - update highest bet slot 62 ✅
+    # - update raiser ✅
+    # - update the remaining balance of player ✅
+    # - update player bet = 0 ??
+    # - update the pot value ?? 
+    # - update phase/round n sum ✅
+    # - increase the slot to next player who is playing 👀
+
+    # update highest bet
+    
+    push.HIGHEST_BET_SLOT_INDEX drop drop drop 
+    #[HIGHEST_BET_SLOT_INDEX, player_bet]
+
+    exec.account.set_item
+    #[]
+
+    # update raiser
+
+    push.CURRENT_PLAYER_PUB_KEY_INDEX drop drop drop
+    #[CURRENT_PLAYER_PUB_KEY_INDEX]
+
+    push.RAISER_INDEX
+    #[RAISER_INDEX, CURRENT_PLAYER_PUB_KEY_INDEX]
+
+    exec.account.set_item
+    #[]
+
+
+    # update the remaining balance of player 
+
+    push.CURRENT_PLAYER_PUB_KEY_INDEX drop drop drop
+    # [CURRENT_PLAYER_PUB_KEY_INDEX]
+
+    push.3 add
+    # [CURRENT_PLAYER_PUB_KEY_INDEX + 3]
+
+    dup
+    # [CURRENT_PLAYER_PUB_KEY_INDEX + 3, CURRENT_PLAYER_PUB_KEY_INDEX + 3]
+
+
+    exec.account.get_item drop drop drop 
+    # [player_remaining_balance, CURRENT_PLAYER_PUB_KEY_INDEX + 3]
+
+    push.HIGHEST_BET_SLOT_INDEX drop drop drop
+    # [HIGHEST_BET_SLOT_INDEX, player_remaining_balance, CURRENT_PLAYER_PUB_KEY_INDEX + 3]
+
+    exec.account.get_item drop drop drop 
+    # [player_bet, player_remaining_balance, CURRENT_PLAYER_PUB_KEY_INDEX + 3]
+    
+    sub
+    # [player_balance_after_bet, CURRENT_PLAYER_PUB_KEY_INDEX + 3]
+
+    dup push.0 
+    # [0, player_balance_after_bet ,player_balance_after_bet, CURRENT_PLAYER_PUB_KEY_INDEX + 3]
+
+    gte
+    # [1/0 ,player_balance_after_bet, CURRENT_PLAYER_PUB_KEY_INDEX + 3]
+
+    assert
+    # [player_balance_after_bet, CURRENT_PLAYER_PUB_KEY_INDEX + 3]
+
+    swap
+    # [CURRENT_PLAYER_PUB_KEY_INDEX + 3, player_balance_after_bet]
+
+    exec.account.set_item
+    # []
+
+
+    # - update phase/round n sum
+
+    push.CURRENT_TURN_INDEX drop drop drop
+    #[CURRENT_TURN_INDEX]
+
+    push.4 add
+    #[CURRENT_TURN_INDEX+4]
+
+    push.CURRENT_PHASE drop drop drop
+    #[CURRENT_PHASE, CURRENT_TURN_INDEX+4]
+
+    add push.1 swap sub dup
+    #[CURRENT_PHASE + CURRENT_TURN_INDEX + 4 -1, CURRENT_PHASE + CURRENT_TURN_INDEX + 4 -1 ]
+
+    exec.account.get_item drop drop drop 
+    #[phase_n_sum, CURRENT_PHASE + CURRENT_TURN_INDEX + 4 -1]
+
+    push.HIGHEST_BET_SLOT_INDEX drop drop drop
+    #[HIGHEST_BET_SLOT_INDEX, phase_n_sum, CURRENT_PHASE + CURRENT_TURN_INDEX + 4 -1]
+
+    exec.account.get_item drop drop drop 
+    #[highest_bet, phase_n_sum, CURRENT_PHASE + CURRENT_TURN_INDEX + 4 -1]
+
+    add
+    #[highest_bet + phase_n_sum, CURRENT_PHASE + CURRENT_TURN_INDEX + 4 -1]
+
+    swap exec.account.set_item
+    # []
+end
 
 # some basic account methods 
 
