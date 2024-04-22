@@ -114,12 +114,14 @@ end
 
 export.play_raise
 
-    # raise amount = current player bet
-    push.CURRENT_PLAYER_PUB_KEY_INDEX drop drop drop
-    # [current turn pub key index]
+    # raise amount = current player bet - it should be (bet amount - last call amount) ??
+    push.CURRENT_PLAYER_PUB_KEY_INDEX
+    # => [0, 0, 0, current turn player pub key index]
+    drop drop drop
+    # [current turn player pub key index]
 
     push.2 add
-    # [current turn pub key index + 2, ]
+    # [current turn pub key index + 2]
 
     exec.account.get_item drop drop drop
     # [player_bet]
@@ -172,7 +174,7 @@ export.play_raise
     # [HIGHEST_BET_SLOT_INDEX, player_remaining_balance, CURRENT_PLAYER_PUB_KEY_INDEX + 3]
 
     exec.account.get_item drop drop drop 
-    # [player_bet, player_remaining_balance, CURRENT_PLAYER_PUB_KEY_INDEX + 3]
+    # [player_bet, player_remaining_balance, CURRENT_PLAYER_PUB_KEY_INDEX + 3] -> ig here we need player_remaining_balance and then player_bet or we need to take it's absolute value
     
     sub
     # [player_balance_after_bet, CURRENT_PLAYER_PUB_KEY_INDEX + 3]
@@ -183,7 +185,7 @@ export.play_raise
     gte
     # [1/0 ,player_balance_after_bet, CURRENT_PLAYER_PUB_KEY_INDEX + 3]
 
-    assert
+    assert -> what is the use of assert here ??
     # [player_balance_after_bet, CURRENT_PLAYER_PUB_KEY_INDEX + 3]
 
     swap
@@ -192,7 +194,7 @@ export.play_raise
     exec.account.set_item
     # []
 
-
+    # need to confirm the phase logic 
     # - update phase/round n sum
 
     push.CURRENT_TURN_INDEX drop drop drop
