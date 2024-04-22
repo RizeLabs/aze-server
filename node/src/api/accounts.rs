@@ -23,12 +23,17 @@ use miden_objects::{
     },
     transaction::InputNote,
 };
-use miden_client::client:: {
-    accounts::{AccountTemplate, AccountStorageMode},
-    transactions::transaction_request::{
-        PaymentTransactionData, TransactionRequest, TransactionTemplate,
+use miden_client::{
+    client::{
+        accounts::{AccountTemplate, AccountStorageMode},
+        transactions::transaction_request::{
+            PaymentTransactionData, TransactionRequest, TransactionTemplate,
+        },
     },
+    store::NoteFilter,
 };
+
+
 use actix_web::{
     error::ResponseError,
     get,
@@ -116,9 +121,30 @@ pub async fn create_aze_game_account() -> Result<Json<AccountCreationResponse>, 
             .unwrap();
 
         execute_tx_and_sync(&mut client, txn_request).await;
+
+        // now we need to consume notes here 
+        // get the committed notes
+        let notes = client.get_input_notes(NoteFilter::Committed).unwrap();
+        // TODO: add a check here that notes should not be empty
+        let tx_template = TransactionTemplate::ConsumeNotes(target_account_id, vec![notes[0].id()]);
+        let tx_request = client.build_transaction_request(tx_template).unwrap();
+        execute_tx_and_sync(&mut client, tx_request).await;
+
         println!("Executed and synced with node");
 
     }
+
+    // create a sample account and compare the storage root for both
+    // let (sample_account, _) = client
+    //     .new_account(AccountTemplate::FungibleFaucet {
+    //         token_symbol: TokenSymbol::new("MATIC").unwrap(),
+    //         decimals: 8,
+    //         max_supply: 1_000_000_000,
+    //         storage_mode: AccountStorageMode::Local,
+    //     })
+    //     .unwrap();
+
+
 
     // check the store of player 1 account to see are the cards set properly
     let player_account_storage = player_account.storage();
