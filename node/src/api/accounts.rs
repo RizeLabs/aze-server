@@ -93,6 +93,7 @@ pub async fn create_aze_game_account() -> Result<Json<AccountCreationResponse>, 
     for i in 1..2 * player_account_ids.len() + 1 {
         let slot_index = i;
         let card = game_account_storage.get_item(slot_index as u8);
+        println!("Card from game storage {:?}", card);
         cards.push(card.into());
     }
 
@@ -116,7 +117,13 @@ pub async fn create_aze_game_account() -> Result<Json<AccountCreationResponse>, 
 
         execute_tx_and_sync(&mut client, txn_request).await;
         println!("Executed and synced with node");
+
     }
+
+    // check the store of player 1 account to see are the cards set properly
+    let player_account_storage = player_account.storage();
+    println!("Player account storage {:?}", player_account_storage.get_item(100));
+    println!("Player account storage {:?}", player_account_storage.get_item(101));
 
     // TODO: define appropriate response types 
     Ok(Json(AccountCreationResponse { is_created: true }))
