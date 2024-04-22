@@ -17,6 +17,8 @@ const.CURRENT_TURN_PLAYER_PUB_KEY_INDEX=63 # need to check it's storage initiall
 const.CURRENT_PLAYER_PUB_KEY_INDEX=62 # at 63 we stored pub key for current player (it will contain)
 const.HIGHEST_BET_SLOT_INDEX=64 # highest bet amount which player will try to match with call
 const.CURRENT_PHASE=65 # whole game is divided into 4 phases
+
+const.NEXT_ACTIVE_PLAYER_KEY_INDEX=67 # next active player key index
 # game events 
 # TODO: fix some storage for the value corresponding to these events 
 const.PLAYER_BETTED_AMOUNT=169 # check slot (169 - 100) 
@@ -221,6 +223,84 @@ export.play_raise
 
     swap exec.account.set_item
     # []
+end
+
+
+export.find_next_active_player
+
+    ##update the slot for next active players public 
+    # iterate over the number of players starting from the index of current player + 1 
+    # for each player check is_fold = 0 or 1
+    # if 0 then set this to slot NEXT_ACTIVE_PLAYER_KEY_INDEX
+    # if 1 move to next player
+
+    push.CURRENT_TURN_PLAYER_PUB_KEY_INDEX drop drop drop
+    #[CURRENT_TURN_PLAYER_PUB_KEY_INDEX]
+
+    push.10 add #assuming there are 9 values for each player
+    #[CURRENT_TURN_PLAYER_PUB_KEY_INDEX + 10]
+
+    ## FIND THE NUMBER OF ROWS
+    push.NO_OF_PLAYERS_INDEX drop drop drop
+    exec.account.get_item drop drop drop 
+    push.9 mul push.NEXT_ACTIVE_PLAYER_KEY_INDEX drop drop drop add
+
+    lte
+    #[1/0, CURRENT_TURN_PLAYER_PUB_KEY_INDEX + 10]
+
+    drop dup
+    #[CURRENT_TURN_PLAYER_PUB_KEY_INDEX + 10]
+
+
+    while.true
+        
+
+        ## FIND THE NUMBER OF ROWS
+        push.NO_OF_PLAYERS_INDEX drop drop drop
+        exec.account.get_item drop drop drop 
+        push.10 mul push.NEXT_ACTIVE_PLAYER_KEY_INDEX drop drop drop add
+        lte
+        #[1/0, CURRENT_TURN_PLAYER_PUB_KEY_INDEX + 10, CURRENT_TURN_PLAYER_PUB_KEY_INDEX + 10]
+
+        mem_store.0
+        if.mem_load.0
+            #[CURRENT_TURN_PLAYER_PUB_KEY_INDEX + 10, CURRENT_TURN_PLAYER_PUB_KEY_INDEX + 10]
+            
+            push.1 sub
+            #[CURRENT_TURN_PLAYER_PUB_KEY_INDEX + 10 - 1, CURRENT_TURN_PLAYER_PUB_KEY_INDEX + 10]
+
+            exec.account.get_item drop drop drop # we should be in the is_fold of current player
+            #[1/0, CURRENT_TURN_PLAYER_PUB_KEY_INDEX + 10]
+
+            mem_store.1 # store is_fold inside the mem_store
+            #[CURRENT_TURN_PLAYER_PUB_KEY_INDEX + 10]
+
+            # now check if fold
+            if.mem_load.1
+                push.10 add
+                #[CURRENT_TURN_PLAYER_PUB_KEY_INDEX + 10 + 10]
+
+            else
+                push.NEXT_ACTIVE_PLAYER_KEY_INDEX drop drop drop swap
+                #[CURRENT_TURN_PLAYER_PUB_KEY_INDEX + 10, NEXT_ACTIVE_PLAYER_KEY_INDEX]
+
+                push.10 sub
+                #[CURRENT_TURN_PLAYER_PUB_KEY_INDEX, NEXT_ACTIVE_PLAYER_KEY_INDEX]
+
+                exec.account.set_item
+                push.0
+            end
+
+        else
+            ## FIND THE NUMBER OF ROWS
+            push.NO_OF_PLAYERS_INDEX drop drop drop
+            exec.account.get_item drop drop drop 
+            push.10 mul push.NEXT_ACTIVE_PLAYER_KEY_INDEX drop drop drop add
+            # [num_of_rows, CURRENT_TURN_PLAYER_PUB_KEY_INDEX + 10]
+
+            sub
+            # [CURRENT_TURN_PLAYER_PUB_KEY_INDEX + 10 - num_of_rows]
+    end
 end
 
 # some basic account methods 
