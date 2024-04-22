@@ -114,19 +114,10 @@ end
 
 export.play_raise
 
-    # raise amount = current player bet - it should be (bet amount - last call amount) ??
-    push.CURRENT_PLAYER_PUB_KEY_INDEX
-    # => [0, 0, 0, current turn player pub key index]
-    drop drop drop
-    # [current turn player pub key index]
-
-    push.2 add
-    # [current turn pub key index + 2]
-
-    exec.account.get_item drop drop drop
-    # [player_bet]
+    
 
     # Tasks need to be performed:
+    # - get raise amount ✅
     # - update highest bet slot 62 ✅
     # - update raiser ✅
     # - update the remaining balance of player ✅
@@ -135,7 +126,29 @@ export.play_raise
     # - update phase/round n sum ✅
     # - increase the slot to next player who is playing 👀
 
-    # update highest bet
+
+    ## raise amount = current player bet - it should be (bet amount - last call amount) ??
+    push.CURRENT_PLAYER_PUB_KEY_INDEX
+    # => [0, 0, 0, current turn player pub key index]
+    drop drop drop
+    # [current turn player pub key index]
+
+    push.2 add
+    # [current turn pub key index + 2]
+
+    exec.account.get_item drop drop drop dup
+    # [player_bet, player_bet]
+
+    push.HIGHEST_BET_SLOT_INDEX drop drop drop
+    #[last_highest_bet, player_bet, player_bet]
+
+    swap sub
+    #[raise_ampunt, player_bet]
+
+    mem_store.0
+    #[player_bet]
+
+    ## update highest bet
     
     push.HIGHEST_BET_SLOT_INDEX drop drop drop 
     #[HIGHEST_BET_SLOT_INDEX, player_bet]
@@ -143,7 +156,7 @@ export.play_raise
     exec.account.set_item
     #[]
 
-    # update raiser
+    ## update raiser
 
     push.CURRENT_PLAYER_PUB_KEY_INDEX drop drop drop
     #[CURRENT_PLAYER_PUB_KEY_INDEX]
@@ -155,7 +168,7 @@ export.play_raise
     #[]
 
 
-    # update the remaining balance of player 
+    ## update the remaining balance of player 
 
     push.CURRENT_PLAYER_PUB_KEY_INDEX drop drop drop
     # [CURRENT_PLAYER_PUB_KEY_INDEX]
