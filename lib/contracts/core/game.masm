@@ -226,24 +226,33 @@ export.play_raise
 end
 
 
-export.find_next_active_player
+export.find_next_active_player # why are you exporting this ?? we need to use this internally right 
 
-    ##update the slot for next active players public 
+    # update the slot for next active players public 
     # iterate over the number of players starting from the index of current player + 1 
     # for each player check is_fold = 0 or 1
     # if 0 then set this to slot NEXT_ACTIVE_PLAYER_KEY_INDEX
     # if 1 move to next player
 
     push.CURRENT_TURN_PLAYER_PUB_KEY_INDEX drop drop drop
-    #[CURRENT_TURN_PLAYER_PUB_KEY_INDEX]
+    # => [CURRENT_TURN_PLAYER_PUB_KEY_INDEX]
 
-    push.10 add #assuming there are 9 values for each player
-    #[CURRENT_TURN_PLAYER_PUB_KEY_INDEX + 10]
+    push.10 add # assuming there are 9 stats values for each player
+    # => [CURRENT_TURN_PLAYER_PUB_KEY_INDEX + 10]
 
-    ## FIND THE NUMBER OF ROWS
     push.NO_OF_PLAYERS_INDEX drop drop drop
-    exec.account.get_item drop drop drop 
-    push.9 mul push.NEXT_ACTIVE_PLAYER_KEY_INDEX drop drop drop add
+
+    exec.account.get_item drop drop drop
+    # x = no of players 
+    # => [x, CURRENT_TURN_PLAYER_PUB_KEY_INDEX + 10]
+
+    # why are we pushing 9 and then multiplying it with no of players ?
+    push.9 mul 
+
+    # => [9 * x, CURRENT_TURN_PLAYER_PUB_KEY_INDEX + 10] 9 * x would be fold index of last player why are we checking that ??
+    push.NEXT_ACTIVE_PLAYER_KEY_INDEX drop drop drop 
+    
+    add
 
     lte
     #[1/0, CURRENT_TURN_PLAYER_PUB_KEY_INDEX + 10]
