@@ -33,7 +33,7 @@ begin
     mem_loadw push.101 exec.receive_cards
 
     # Debugging https://0xpolygonmiden.github.io/miden-vm/user_docs/assembly/debugging.html
-    #debug.stack
+    debug.stack # log the entire stack content
     
     # All account and note procedures
     # https://0xpolygonmiden.github.io/miden-base/transactions/transaction-procedures.html#transaction-procedures 

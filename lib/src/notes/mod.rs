@@ -9,6 +9,7 @@ use miden_client::client::transactions::transaction_request::{TransactionRequest
 use crate::client::AzeClient;
 use crate::executor::execute_tx_and_sync;
 use crate::constants::{BUY_IN_AMOUNT, TRANSFER_AMOUNT};
+use std::rc::Rc;
 
 pub fn create_send_card_note<R: FeltRng>(
     sender_account_id: AccountId,
@@ -19,9 +20,10 @@ pub fn create_send_card_note<R: FeltRng>(
     cards: [[Felt; 4]; 2],
 ) -> Result<Note, NoteError> {
     let note_script = include_str!("../../contracts/notes/game/deal.masm");
-    let note_assembler = TransactionKernel::assembler();
+    // TODO: hide it under feature flag debug (.with_debug_mode(true))
+    let mut note_assembler = TransactionKernel::assembler();
     let script_ast = ProgramAst::parse(note_script).unwrap();
-    let (note_script, _) = NoteScript::new(script_ast, &note_assembler)?;
+    let (note_script, _) = NoteScript::new(script_ast, &(note_assembler.with_debug_mode(true)))?;
 
     // for now hardcoding cards here
     let card_1 = cards[0];
