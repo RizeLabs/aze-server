@@ -116,7 +116,7 @@ pub fn create_aze_client() -> AzeClient {
     let rpc_endpoint = client_config.rpc.endpoint.to_string();
     let store = SqliteStore::new((&client_config).into()).unwrap();
     let executor_store = SqliteStore::new((&client_config).into()).unwrap();
-    AzeClient::new(TonicRpcClient::new(&rpc_endpoint), rng, store, executor_store).unwrap()
+    AzeClient::new(TonicRpcClient::new(&rpc_endpoint), rng, store, executor_store, true)
 }
 
 impl<N: NodeRpcClient, R: FeltRng, S: Store> AzeGameMethods for Client<N, R, S> {
