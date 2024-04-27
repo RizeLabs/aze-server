@@ -41,8 +41,10 @@ pub fn create_send_card_note<R: FeltRng, N: NodeRpcClient, S: Store>(
     let card_2 = cards[1];
 
     // Here you can add the inputs to the note
-    let inputs = [card_1.as_slice(), card_2.as_slice()].concat();
+    let mut inputs = [card_1.as_slice(), card_2.as_slice()].concat();
     println!("card Inputs: {:?}", inputs);
+    // inputs = [inputs, vec![target_account_id.into()]].concat();
+    // println!("final inputs {:?}", inputs);
     let note_inputs = NoteInputs::new(inputs).unwrap();
     let tag = NoteTag::from_account_id(target_account_id, NoteExecutionMode::Local)?;
     let serial_num = rng.draw_word();

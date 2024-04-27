@@ -152,6 +152,11 @@ pub async fn create_aze_game_account() -> Result<Json<AccountCreationResponse>, 
 
     // check the store of player 1 account to see are the cards set properly
     let player_account_storage = player_account.storage();
+
+    // for i in 0..102 {
+    //     println!("Player account storage {:?} {:?}", i , player_account_storage.get_item(i));
+    // }
+
     println!("Player account storage {:?}", player_account_storage.get_item(100));
     println!("Player account storage {:?}", player_account_storage.get_item(101));
 
