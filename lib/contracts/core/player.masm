@@ -8,8 +8,8 @@ export.basic_eoa::auth_tx_rpo_falcon512
 # export.account::set_item
     
 export.receive_cards
-    exec.account::set_item
 
+    exec.account::set_item
     debug.stack
 
     # prepare stack for return

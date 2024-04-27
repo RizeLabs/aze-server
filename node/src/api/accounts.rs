@@ -57,6 +57,9 @@ pub async fn create_aze_game_account() -> Result<Json<AccountCreationResponse>, 
         storage_mode: AccountStorageMode::Local, // for now
     }).unwrap();
 
+    // println!("Account storage root previous {:?}", player_account.storage().root());
+    let prev_acc_storage = player_account.storage().root();
+
     let (faucet_account, _) = client
         .new_account(AccountTemplate::FungibleFaucet {
             token_symbol: TokenSymbol::new("MATIC").unwrap(),
@@ -156,9 +159,12 @@ pub async fn create_aze_game_account() -> Result<Json<AccountCreationResponse>, 
     // for i in 0..102 {
     //     println!("Player account storage {:?} {:?}", i , player_account_storage.get_item(i));
     // }
+    let after_acc_storage = player_account.storage().root();
 
-    println!("Player account storage {:?}", player_account_storage.get_item(100));
-    println!("Player account storage {:?}", player_account_storage.get_item(101));
+    println!("Player Card 1 {:?}", player_account_storage.get_item(100));
+    println!("Player Card 2 {:?}", player_account_storage.get_item(101));
+    println!("Prev acc storage root {:?}", prev_acc_storage);
+    println!("After txn acc storage root {:?}", after_acc_storage);
 
     // TODO: define appropriate response types 
     Ok(Json(AccountCreationResponse { is_created: true }))
