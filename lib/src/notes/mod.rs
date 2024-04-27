@@ -24,6 +24,7 @@ pub fn create_send_card_note<R: FeltRng, N: NodeRpcClient, S: Store>(
     let note_script = include_str!("../../contracts/notes/game/deal.masm");
     // TODO: hide it under feature flag debug (.with_debug_mode(true))
     // let mut note_assembler = TransactionKernel::assembler();
+    // println!("note scirpt {:?} ", note_script);
     let script_ast = ProgramAst::parse(note_script).unwrap();
     // let (note_script, _) = NoteScript::new(script_ast, &(note_assembler.with_debug_mode(true)))?;
 
