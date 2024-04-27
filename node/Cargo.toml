@@ -22,9 +22,9 @@ tokio = { version = "1.29", features = ["rt-multi-thread", "net", "macros"] }
 aze-lib = { path = "../lib" }
 aze-types = { path = "../types" }
 miden-lib = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "main", version = "0.2", features= ["concurrent","testing"] }
-miden-tx = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "main", version = "0.2" }
+miden-tx = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "main", version = "0.2.3" }
 # miden-objects = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "main", version = "0.1", default-features = false  }
-miden-client = { git = "https://github.com/0xPolygonMiden/miden-client.git", branch = "main", version = "0.2.0", features= ["concurrent","testing"] }
+miden-client = { git = "https://github.com/0xPolygonMiden/miden-client.git", branch = "main", features= ["concurrent","testing"] }
 miden-objects = { version = "0.2", features = ["serde"] }
 
 [build-dependencies]

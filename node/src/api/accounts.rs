@@ -120,13 +120,17 @@ pub async fn create_aze_game_account() -> Result<Json<AccountCreationResponse>, 
             .build_aze_send_card_tx_request(transaction_template)
             .unwrap();
 
-        execute_tx_and_sync(&mut client, txn_request).await;
+        execute_tx_and_sync(&mut client, txn_request.clone()).await;
 
         // now we need to consume notes here 
         // get the committed notes
-        let notes = client.get_input_notes(NoteFilter::Committed).unwrap();
-        // TODO: add a check here that notes should not be empty
-        let tx_template = TransactionTemplate::ConsumeNotes(target_account_id, vec![notes[0].id()]);
+        // let notes = client.get_input_notes(NoteFilter::Committed).unwrap();
+        // // TODO: add a check here that notes should not be empty
+        // let tx_template = TransactionTemplate::ConsumeNotes(target_account_id, vec![notes[0].id()]);
+        let note_id = txn_request.expected_output_notes()[0].id();
+        let note = client.get_input_note(note_id).unwrap();
+
+        let tx_template = TransactionTemplate::ConsumeNotes(target_account_id, vec![note.id()]);
         let tx_request = client.build_transaction_request(tx_template).unwrap();
         execute_tx_and_sync(&mut client, tx_request).await;
 
