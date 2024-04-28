@@ -4,7 +4,7 @@
 - Clone the repo
 - change the directory `cd aze-server` 
 - build the project `cargo build`
-- run the server `cargo run`
+- run the server `cargo run --release`
 
 ### Run test
 - `cargo test --release --test=integration`
