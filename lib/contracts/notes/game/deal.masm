@@ -7,47 +7,33 @@ use.miden::contracts::poker::poker
 
 proc.receive_cards
     exec.account::set_item
-
-    debug.stack
-
-    # prepare stack for return
-    movup.4 drop movup.4 drop movup.4 drop
+    # => [R, V]
+    # drop the root
+    dropw 
 end
 
+begin   
+    dropw
 
-begin
-    # All scripts start with the NOTE_SCRIPT_ROOT, you can drop it
-    dropw 
-    
     push.0 exec.note::get_inputs 
-    # debug.stack
-    # it saves first word at zero and the continues the second word at 1 
     # => [num_inputs, des_pointer, ...]
 
-    # dup push.8 eq assert (just for debugging purposes)
-    # => [des_pointer = 0, ...]
+    drop mem_loadw
+    # => [CARD, ...]
 
-    push.0
-    # since now the word is at position 0 and 1 for loading the first word we will push zero and then load the word      
-    mem_loadw 
-    push.100 
-    debug.stack
-    # truncate_stack
-    call.receive_cards # using call we are storing the cards in memory of the account context
+    push.100 call.receive_cards
+    # => [...]
 
-    push.1
-    # since now the word is at position 0 and 1 for loading the first word we will push one and then load the word 
-    mem_loadw push.101 
-    
-    call.receive_cards
+    # Push next pointer
+    push.1 mem_loadw
+    # => [CARD, ...]
 
-    # Debugging https://0xpolygonmiden.github.io/miden-vm/user_docs/assembly/debugging.html
-    debug.stack # log the entire stack content
-    
-    # All account and note procedures
-    # https://0xpolygonmiden.github.io/miden-base/transactions/transaction-procedures.html#transaction-procedures 
-    
-    push.0 exec.note::get_assets drop mem_loadw
+    # Reduce stack size before calling procedure
+    movupw.3 dropw 
+    push.101 call.receive_cards 
+    # => [...]
+
+    padw exec.note::get_assets drop mem_loadw
     # => [ASSET, ...]
 
     # load the asset and add it to the account

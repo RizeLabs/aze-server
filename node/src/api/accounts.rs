@@ -56,10 +56,7 @@ pub async fn create_aze_game_account() -> Result<Json<AccountCreationResponse>, 
         mutable_code: false,
         storage_mode: AccountStorageMode::Local, // for now
     }).unwrap();
-
-    // println!("Account storage root previous {:?}", player_account.storage().root());
-    let prev_acc_storage = player_account.storage().root();
-
+    
     let (faucet_account, _) = client
         .new_account(AccountTemplate::FungibleFaucet {
             token_symbol: TokenSymbol::new("MATIC").unwrap(),
@@ -84,15 +81,16 @@ pub async fn create_aze_game_account() -> Result<Json<AccountCreationResponse>, 
 
     let game_account_id = game_account.id();
     let game_account_storage = game_account.storage();
+
     println!("Account created: {:?}", game_account_id);
         
     println!("First client consuming note");
     let note =
-        mint_note(&mut client, game_account_id, faucet_account_id, NoteType::Public).await;
+    mint_note(&mut client, game_account_id, faucet_account_id, NoteType::Public).await;
     println!("Minted note");
-        consume_notes(&mut client, game_account_id, &[note]).await;
+    consume_notes(&mut client, game_account_id, &[note]).await;
     println!("Player account consumed note");
-
+    
     let sender_account_id = game_account_id;
 
     // let sample_card = [Felt::new(99), Felt::new(99), Felt::new(99), Felt::new(99)];
@@ -109,6 +107,8 @@ pub async fn create_aze_game_account() -> Result<Json<AccountCreationResponse>, 
     for (i, _) in player_account_ids.iter().enumerate() {
         let target_account_id = player_account_ids[i];
         println!("Target account id {:?}", target_account_id);
+
+        print_account_status(&client, target_account_id).await;
 
         let input_cards = [cards[i], cards[i + 1]];
         let sendcard_txn_data = SendCardTransactionData::new(
@@ -138,7 +138,7 @@ pub async fn create_aze_game_account() -> Result<Json<AccountCreationResponse>, 
         execute_tx_and_sync(&mut client, tx_request).await;
 
         println!("Executed and synced with node");
-
+        print_account_status(&client, target_account_id).await;
     }
 
     // create a sample account and compare the storage root for both
@@ -150,22 +150,7 @@ pub async fn create_aze_game_account() -> Result<Json<AccountCreationResponse>, 
     //         storage_mode: AccountStorageMode::Local,
     //     })
     //     .unwrap();
-
-
-
-    // check the store of player 1 account to see are the cards set properly
-    let player_account_storage = player_account.storage();
-
-    // for i in 0..102 {
-    //     println!("Player account storage {:?} {:?}", i , player_account_storage.get_item(i));
-    // }
-    let after_acc_storage = player_account.storage().root();
-
-    println!("Player Card 1 {:?}", player_account_storage.get_item(100));
-    println!("Player Card 2 {:?}", player_account_storage.get_item(101));
-    println!("Prev acc storage root {:?}", prev_acc_storage);
-    println!("After txn acc storage root {:?}", after_acc_storage);
-
+    
     // TODO: define appropriate response types 
     Ok(Json(AccountCreationResponse { is_created: true }))
 }
@@ -196,4 +181,15 @@ pub async fn create_aze_player_account(
         is_created: true,
         account_id: game_account.id().into(),
     }))
+}
+
+async fn print_account_status(
+    client: &AzeClient,
+    account_id: AccountId,
+) {
+    let (regular_account, _seed) = client.get_account(account_id).unwrap();
+    println!("Account asset count --> {:?}", regular_account.vault().assets().count());
+    println!("Account storage root --> {:?}", regular_account.storage().root());
+    println!("Account slot 100 --> {:?}", regular_account.storage().get_item(100));
+    println!("Account slot 101 --> {:?}", regular_account.storage().get_item(101));
 }
