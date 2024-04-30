@@ -1,3 +1,3 @@
 pub mod accounts;
-pub mod action;
+pub mod actions;
 pub mod notes;
