@@ -23,28 +23,15 @@ pub fn create_send_card_note<R: FeltRng, N: NodeRpcClient, S: Store>(
 ) -> Result<Note, NoteError> {
     let note_script = include_str!("../../contracts/notes/game/deal.masm");
     // TODO: hide it under feature flag debug (.with_debug_mode(true))
-    // let mut note_assembler = TransactionKernel::assembler();
-    // println!("note scirpt {:?} ", note_script);
     let script_ast = ProgramAst::parse(note_script).unwrap();
-    // let (note_script, _) = NoteScript::new(script_ast, &(note_assembler.with_debug_mode(true)))?;
-
-    let script_ast = ProgramAst::parse(note_script).unwrap();
-    // let target_script_proc = vec![ScriptTarget::AccountId(target_account_id)];
-
-    // let (note_script, _) = NoteScript::new(script_ast, &note_assembler)?;
     let note_script = client.compile_note_script(script_ast, vec![]).unwrap();
-    // let note_script = 
 
-
-    // for now hardcoding cards here
     let card_1 = cards[0];
     let card_2 = cards[1];
 
-    // Here you can add the inputs to the note
     let mut inputs = [card_1.as_slice(), card_2.as_slice()].concat();
     println!("card Inputs: {:?}", inputs);
-    // inputs = [inputs, vec![target_account_id.into()]].concat();
-    // println!("final inputs {:?}", inputs);
+
     let note_inputs = NoteInputs::new(inputs).unwrap();
     let tag = NoteTag::from_account_id(target_account_id, NoteExecutionMode::Local)?;
     let serial_num = rng.draw_word();
