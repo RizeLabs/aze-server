@@ -118,7 +118,6 @@ pub async fn create_aze_game_account() -> Result<
 
     let sender_account_id = game_account_id;
 
-    // let sample_card = [Felt::new(99), Felt::new(99), Felt::new(99), Felt::new(99)];
     let mut cards = vec![];
 
     for i in 1..2 * player_account_ids.len() + 1 {
@@ -148,11 +147,6 @@ pub async fn create_aze_game_account() -> Result<
 
         execute_tx_and_sync(&mut client, txn_request.clone()).await;
 
-        // now we need to consume notes here
-        // get the committed notes
-        // let notes = client.get_input_notes(NoteFilter::Committed).unwrap();
-        // // TODO: add a check here that notes should not be empty
-        // let tx_template = TransactionTemplate::ConsumeNotes(target_account_id, vec![notes[0].id()]);
         let note_id = txn_request.expected_output_notes()[0].id();
         let note = client.get_input_note(note_id).unwrap();
 
@@ -163,16 +157,6 @@ pub async fn create_aze_game_account() -> Result<
         println!("Executed and synced with node");
         print_account_status(&client, target_account_id).await;
     }
-
-    // create a sample account and compare the storage root for both
-    // let (sample_account, _) = client
-    //     .new_account(AccountTemplate::FungibleFaucet {
-    //         token_symbol: TokenSymbol::new("MATIC").unwrap(),
-    //         decimals: 8,
-    //         max_supply: 1_000_000_000,
-    //         storage_mode: AccountStorageMode::Local,
-    //     })
-    //     .unwrap();
 
     // TODO: define appropriate response types
     Ok(Json(AccountCreationResponse { is_created: true }))
