@@ -70,7 +70,6 @@ pub async fn mint_note(
     note_type: NoteType,
 ) -> InputNote {
     let (regular_account, _seed) = client.get_account(basic_account_id).unwrap();
-    assert_eq!(regular_account.vault().assets().count(), 0);
 
     // Create a Mint Tx for 1000 units of our fungible asset
     let fungible_asset = FungibleAsset::new(faucet_account_id, BUY_IN_AMOUNT).unwrap();
