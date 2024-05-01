@@ -1,33 +1,42 @@
-use aze_lib::client::{AzeClient, AzeGameMethods, AzeAccountTemplate, AzeTransactionTemplate, SendCardTransactionData};
+use aze_lib::client::{
+    AzeClient,
+    AzeGameMethods,
+    AzeAccountTemplate,
+    AzeTransactionTemplate,
+    SendCardTransactionData,
+};
 use aze_lib::constants::BUY_IN_AMOUNT;
 use aze_lib::executor::execute_tx_and_sync;
-use aze_lib::utils::{get_random_coin, load_config};
-use miden_client::client::accounts::{AccountStorageMode, AccountTemplate};
+use aze_lib::utils::{ get_random_coin, load_config };
+use aze_lib::notes::{ consume_notes, mint_note };
 use miden_client::{
-    client::rpc::TonicRpcClient,
-    config::{ClientConfig, RpcConfig},
-    errors::{ClientError, NodeRpcClientError},
+    client::{
+        accounts::{ AccountTemplate, AccountStorageMode },
+        transactions::transaction_request::TransactionTemplate,
+        rpc::TonicRpcClient,
+    },
+    config::{ ClientConfig, RpcConfig },
+    errors::{ ClientError, NodeRpcClientError },
     store::sqlite_store::SqliteStore,
 };
 use miden_crypto::hash::rpo::RpoDigest;
 use miden_crypto::FieldElement;
 use miden_objects::{
     Felt,
-    assets::{TokenSymbol, FungibleAsset, Asset}
+    assets::{ TokenSymbol, FungibleAsset, Asset },
+    accounts::AccountId,
+    notes::NoteType,
 };
-use std::{env::temp_dir, time::Duration};
+use std::{ env::temp_dir, time::Duration };
 // use uuid::Uuid;
 
 fn create_test_client() -> AzeClient {
-    let client_config = ClientConfig {
-        store: create_test_store_path()
-            .into_os_string()
-            .into_string()
-            .unwrap()
-            .try_into()
-            .unwrap(),
-        rpc: RpcConfig::default(),
-    };
+    let mut current_dir = std::env
+        ::current_dir()
+        .map_err(|err| err.to_string())
+        .unwrap();
+    current_dir.push("miden-client.toml");
+    let client_config = load_config(current_dir.as_path()).unwrap();
 
     println!("Client Config: {:?}", client_config);
 
@@ -35,26 +44,16 @@ fn create_test_client() -> AzeClient {
     let store = SqliteStore::new((&client_config).into()).unwrap();
     let executor_store = SqliteStore::new((&client_config).into()).unwrap();
     let rng = get_random_coin();
-    AzeClient::new(
-        TonicRpcClient::new(&rpc_endpoint),
-        rng,
-        store,
-        executor_store,
-    )
-    .unwrap()
-}
-
-fn create_test_store_path() -> std::path::PathBuf {
-    let mut temp_file = temp_dir();
-    temp_file.push(format!("{}.sqlite3", "some-random"));
-    temp_file
+    AzeClient::new(TonicRpcClient::new(&rpc_endpoint), rng, store, executor_store, true)
 }
 
 async fn wait_for_node(client: &mut AzeClient) {
     const NODE_TIME_BETWEEN_ATTEMPTS: u64 = 5;
     const NUMBER_OF_NODE_ATTEMPTS: u64 = 60;
 
-    println!("Waiting for Node to be up. Checking every {NODE_TIME_BETWEEN_ATTEMPTS}s for {NUMBER_OF_NODE_ATTEMPTS} tries...");
+    println!(
+        "Waiting for Node to be up. Checking every {NODE_TIME_BETWEEN_ATTEMPTS}s for {NUMBER_OF_NODE_ATTEMPTS} tries..."
+    );
 
     for _try_number in 0..NUMBER_OF_NODE_ATTEMPTS {
         match client.sync_state().await {
@@ -64,11 +63,24 @@ async fn wait_for_node(client: &mut AzeClient) {
             Err(other_error) => {
                 panic!("Unexpected error: {other_error}");
             }
-            _ => return,
+            _ => {
+                return;
+            }
         }
     }
 
     panic!("Unable to connect to node");
+}
+
+async fn fund_game_account(
+    client: &mut AzeClient,
+    game_account_id: AccountId,
+    faucet_account_id: AccountId
+) {
+    let note_1 = mint_note(client, game_account_id, faucet_account_id, NoteType::Public).await;
+    consume_notes(client, game_account_id, &[note_1]).await;
+    let note_2 = mint_note(client, game_account_id, faucet_account_id, NoteType::Public).await;
+    consume_notes(client, game_account_id, &[note_2]).await;
 }
 
 #[tokio::test]
@@ -102,19 +114,16 @@ async fn test_create_aze_game_account() {
                 Felt::ZERO,
             ]);
 
-            assert_eq!(
-                game_account_storage.get_item(slot_index),
-                slot_item,
-            );
+            assert_eq!(game_account_storage.get_item(slot_index), slot_item);
 
             slot_index = slot_index + 1;
         }
     }
 
-    // checking next turn 
+    // checking next turn
     assert_eq!(
         game_account_storage.get_item(slot_index),
-        RpoDigest::new([Felt::ZERO, Felt::ZERO, Felt::ZERO, Felt::ZERO]),
+        RpoDigest::new([Felt::ZERO, Felt::ZERO, Felt::ZERO, Felt::ZERO])
     );
 
     slot_index = slot_index + 1;
@@ -122,7 +131,7 @@ async fn test_create_aze_game_account() {
     // checking the small blind amount
     assert_eq!(
         game_account_storage.get_item(slot_index),
-        RpoDigest::new([Felt::from(small_blind_amt), Felt::ZERO, Felt::ZERO, Felt::ZERO]),
+        RpoDigest::new([Felt::from(small_blind_amt), Felt::ZERO, Felt::ZERO, Felt::ZERO])
     );
 
     slot_index = slot_index + 1;
@@ -130,7 +139,7 @@ async fn test_create_aze_game_account() {
     // checking the big blind amount
     assert_eq!(
         game_account_storage.get_item(slot_index),
-        RpoDigest::new([Felt::from(small_blind_amt * 2), Felt::ZERO, Felt::ZERO, Felt::ZERO]),
+        RpoDigest::new([Felt::from(small_blind_amt * 2), Felt::ZERO, Felt::ZERO, Felt::ZERO])
     );
 
     slot_index = slot_index + 1;
@@ -138,23 +147,22 @@ async fn test_create_aze_game_account() {
     // checking the buy in amount
     assert_eq!(
         game_account_storage.get_item(slot_index),
-        RpoDigest::new([Felt::from(buy_in_amt), Felt::ZERO, Felt::ZERO, Felt::ZERO]),
+        RpoDigest::new([Felt::from(buy_in_amt), Felt::ZERO, Felt::ZERO, Felt::ZERO])
     );
 
     slot_index = slot_index + 1;
-    // checking no of player slot 
+    // checking no of player slot
     assert_eq!(
         game_account_storage.get_item(slot_index),
-        RpoDigest::new([Felt::from(no_of_players), Felt::ZERO, Felt::ZERO, Felt::ZERO]),
+        RpoDigest::new([Felt::from(no_of_players), Felt::ZERO, Felt::ZERO, Felt::ZERO])
     );
 
     slot_index = slot_index + 1;
     // checking flop index slot
     assert_eq!(
         game_account_storage.get_item(slot_index),
-        RpoDigest::new([Felt::from(flop_index), Felt::ZERO, Felt::ZERO, Felt::ZERO]),
+        RpoDigest::new([Felt::from(flop_index), Felt::ZERO, Felt::ZERO, Felt::ZERO])
     );
-    
 }
 
 #[tokio::test]
@@ -170,18 +178,20 @@ async fn test_cards_distribution() {
 
     let game_account_storage = game_account.storage();
 
-    // TODO: for now we''ll distribute cards to two players 
+    // TODO: for now we''ll distribute cards to two players
     let (player1_account, _) = client
-        .new_account(AccountTemplate::BasicWallet { 
-            mutable_code: false, 
-            storage_mode: AccountStorageMode::Local 
-        }).unwrap();
+        .new_game_account(AzeAccountTemplate::PlayerAccount {
+            mutable_code: false,
+            storage_mode: AccountStorageMode::Local,
+        })
+        .unwrap();
 
     let (player2_account, _) = client
-        .new_account(AccountTemplate::BasicWallet { 
-            mutable_code: false, 
-            storage_mode: AccountStorageMode::Local 
-        }).unwrap();
+        .new_game_account(AzeAccountTemplate::PlayerAccount {
+            mutable_code: false,
+            storage_mode: AccountStorageMode::Local,
+        })
+        .unwrap();
 
     // setting up faucet account here
     let (faucet_account, _) = client
@@ -194,6 +204,8 @@ async fn test_cards_distribution() {
         .unwrap();
 
     let faucet_account_id = faucet_account.id();
+    fund_game_account(&mut client, game_account.id(), faucet_account_id).await;
+
     let fungible_asset = FungibleAsset::new(faucet_account_id, BUY_IN_AMOUNT).unwrap();
 
     let player_account_ids = vec![player1_account.id(), player2_account.id()];
@@ -207,28 +219,57 @@ async fn test_cards_distribution() {
 
     println!("Card {:?}", cards);
 
-    // TODO: fix below test
-    // println!("Start sending cards to players");
-    // for (i, _) in player_account_ids.iter().enumerate() {
-    //     let target_account_id = player_account_ids[i];
-    //     println!("Target account id {:?}", target_account_id);
+    println!("Start sending cards to players");
+    for (i, _) in player_account_ids.iter().enumerate() {
+        let target_account_id = player_account_ids[i];
+        println!("Target account id {:?}", target_account_id);
 
-    //     let input_cards = [cards[i], cards[i + 1]]; // don't you think the input cards should contain 8 felt -> 2 cards
-    //     let sendcard_txn_data = SendCardTransactionData::new(
-    //         Asset::Fungible(fungible_asset),
-    //         game_account.id(),
-    //         target_account_id,
-    //         &input_cards,
-    //     );
+        let input_cards = [cards[i], cards[i + 1]]; // don't you think the input cards should contain 8 felt -> 2 cards
+        let sendcard_txn_data = SendCardTransactionData::new(
+            Asset::Fungible(fungible_asset),
+            game_account.id(),
+            target_account_id,
+            &input_cards
+        );
 
-    //     let transaction_template = AzeTransactionTemplate::SendCard(sendcard_txn_data);
+        let transaction_template = AzeTransactionTemplate::SendCard(sendcard_txn_data);
 
-    //     let txn_request = client
-    //         .build_aze_send_card_tx_request(transaction_template)
-    //         .unwrap();
+        let txn_request = client.build_aze_send_card_tx_request(transaction_template).unwrap();
+        execute_tx_and_sync(&mut client, txn_request.clone()).await;
 
-    //     execute_tx_and_sync(&mut client, txn_request).await;
-    //     println!("Executed and synced with node");
-    // }
+        let note_id = txn_request.expected_output_notes()[0].id();
+        let note = client.get_input_note(note_id).unwrap();
 
+        let tx_template = TransactionTemplate::ConsumeNotes(target_account_id, vec![note.id()]);
+        let tx_request = client.build_transaction_request(tx_template).unwrap();
+        execute_tx_and_sync(&mut client, tx_request).await;
+
+        println!("Executed and synced with node");
+        assert_account_status(&mut client, target_account_id, i).await;
+    }
+}
+
+async fn assert_account_status(client: &AzeClient, account_id: AccountId, index: usize) {
+    let (account, _) = client.get_account(account_id).unwrap();
+    let card_suit = 1u8;
+
+    assert_eq!(account.vault().assets().count(), 1);
+    assert_eq!(
+        account.storage().get_item(100),
+        RpoDigest::new([
+            Felt::from(card_suit),
+            Felt::from((index + 1) as u8),
+            Felt::ZERO,
+            Felt::ZERO,
+        ])
+    );
+    assert_eq!(
+        account.storage().get_item(101),
+        RpoDigest::new([
+            Felt::from(card_suit),
+            Felt::from((index + 2) as u8),
+            Felt::ZERO,
+            Felt::ZERO,
+        ])
+    );
 }

@@ -5,30 +5,33 @@ use miden_objects::{
     }, transaction::{TransactionArgs, InputNote}, Felt, NoteError, Word, ZERO
 };
 use miden_tx::TransactionExecutor;
-use miden_client::client::transactions::transaction_request::{TransactionRequest, TransactionTemplate};
+use miden_client::{client::{rpc::NodeRpcClient, transactions::transaction_request::{TransactionRequest, TransactionTemplate}}, store::Store};
+use miden_client::client::Client;
 use crate::client::AzeClient;
 use crate::executor::execute_tx_and_sync;
 use crate::constants::{BUY_IN_AMOUNT, TRANSFER_AMOUNT};
+use std::rc::Rc;
 
-pub fn create_send_card_note<R: FeltRng>(
+pub fn create_send_card_note<R: FeltRng, N: NodeRpcClient, S: Store>(
+    client: &mut Client<N, R, S>,
     sender_account_id: AccountId,
     target_account_id: AccountId,
     assets: Vec<Asset>,
     note_type: NoteType,
-    mut rng: R,
+    mut rng: RpoRandomCoin,
     cards: [[Felt; 4]; 2],
 ) -> Result<Note, NoteError> {
     let note_script = include_str!("../../contracts/notes/game/deal.masm");
-    let note_assembler = TransactionKernel::assembler();
+    // TODO: hide it under feature flag debug (.with_debug_mode(true))
     let script_ast = ProgramAst::parse(note_script).unwrap();
-    let (note_script, _) = NoteScript::new(script_ast, &note_assembler)?;
+    let note_script = client.compile_note_script(script_ast, vec![]).unwrap();
 
-    // for now hardcoding cards here
     let card_1 = cards[0];
     let card_2 = cards[1];
 
-    // Here you can add the inputs to the note
-    let inputs = [card_1.as_slice(), card_2.as_slice()].concat();
+    let mut inputs = [card_1.as_slice(), card_2.as_slice()].concat();
+    println!("card Inputs: {:?}", inputs);
+
     let note_inputs = NoteInputs::new(inputs).unwrap();
     let tag = NoteTag::from_account_id(target_account_id, NoteExecutionMode::Local)?;
     let serial_num = rng.draw_word();
@@ -54,7 +57,6 @@ pub async fn mint_note(
     note_type: NoteType,
 ) -> InputNote {
     let (regular_account, _seed) = client.get_account(basic_account_id).unwrap();
-    assert_eq!(regular_account.vault().assets().count(), 0);
 
     // Create a Mint Tx for 1000 units of our fungible asset
     let fungible_asset = FungibleAsset::new(faucet_account_id, BUY_IN_AMOUNT).unwrap();
