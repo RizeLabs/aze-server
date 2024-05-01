@@ -7,14 +7,14 @@ on:
 
 jobs:
   test:
-    name: Run cargo test --release
+    name: Run Aze server integration test
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Checkout server repo code
+      - name: Checkout miden-node repo
         uses: actions/checkout@v3
         with:
           repository: 'RizeLabs/miden-node'
@@ -33,7 +33,7 @@ jobs:
           cargo install --features testing --path bin/node # install miden-node binary
           cd bin/node
           miden-node make-genesis --force
-          miden-node start node
+          miden-node start node &
 
       - name: Run tests
         run: cargo test --release -- --nocapture
