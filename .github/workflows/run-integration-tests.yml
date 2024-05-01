@@ -36,5 +36,5 @@ jobs:
           miden-node start node
 
       - name: Run tests
-        run: cargo test --release
+        run: cargo test --release -- --nocapture
 
