@@ -1,0 +1,26 @@
+name: Run Aze integration Tests on PR
+
+on:
+  pull_request:
+    branches:
+      - main  
+
+jobs:
+  test:
+    name: Run cargo test --release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+
+      - name: Run tests
+        run: cargo test --release
+
