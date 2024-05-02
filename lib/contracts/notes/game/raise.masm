@@ -1,0 +1,104 @@
+use.miden::account
+use.miden::note
+use.miden::contracts::wallets::basic->wallet
+use.miden::contracts::poker::poker
+
+const.PLAYER_1_PUB_KEY_INDEX=65 # use this index to find other player pub key slot index which would always be second to the player account id
+const.SMALL_BLIND_INDEX=54
+const.BIG_BLIND_INDEX=55
+const.BUY_IN_INDEX=56
+const.NO_OF_PLAYERS_INDEX=57
+const.RAISER_INDEX=58
+const.CURRENT_PLAYER_PUB_KEY_INDEX=60 # at 63 we stored pub key for current player (it will contain)
+const.HIGHEST_BET_SLOT_INDEX=61 # highest bet amount which player will try to match with call
+
+proc.play_raise
+    ## raise amount = current player bet - it should be (bet amount - last call amount) ??
+    push.CURRENT_PLAYER_PUB_KEY_INDEX exec.account::get_item
+    
+    # => [0, 0, 0, current turn player pub key index]
+    drop drop drop
+    # [current turn player pub key index]
+
+    push.2 add
+    # [current turn pub key index + 2]
+
+    exec.account::get_item drop drop drop 
+    # [player_bet]
+
+    ## update highest bet
+    padw drop push.HIGHEST_BET_SLOT_INDEX
+    #[HIGHEST_BET_SLOT_INDEX, 0, 0, 0, player_bet]
+    
+    exec.account::set_item
+    dropw dropw dropw
+    #[]
+
+    ## update raiser
+
+    push.CURRENT_PLAYER_PUB_KEY_INDEX 
+    #[CURRENT_PLAYER_PUB_KEY_INDEX]
+
+    padw drop push.RAISER_INDEX
+    #[RAISER_INDEX, 0, 0, 0, CURRENT_PLAYER_PUB_KEY_INDEX]
+
+    exec.account::set_item
+    dropw dropw 
+    #[]
+
+
+    ## update the remaining balance of player 
+
+    push.CURRENT_PLAYER_PUB_KEY_INDEX exec.account::get_item drop drop drop
+    # [current turn player pub key index]
+
+    push.3 add
+    # [current turn player pub key index + 3]
+
+    dup
+    # [current turn player pub key index + 3, current turn player pub key index + 3]
+
+
+    exec.account::get_item drop drop drop 
+    # [player_remaining_balance, current turn player pub key index + 3]
+
+    push.HIGHEST_BET_SLOT_INDEX
+    # [HIGHEST_BET_SLOT_INDEX, player_remaining_balance, current turn player pub key index + 3]
+
+    exec.account::get_item drop drop drop 
+    # [player_bet, player_remaining_balance, current turn player pub key index + 3] -> ig here we need player_remaining_balance and then player_bet or we need to take it's absolute value
+    
+    dup.1 dup.1 gte assert
+    # [0/1, player_bet, player_remaining_balance, current turn player pub key index + 3]
+    # [player_bet, player_remaining_balance, current turn player pub key index + 3]
+
+    sub
+    # [player_balance_after_bet, current turn player pub key index + 3]
+
+    swap
+    # [current turn player pub key index + 3, player_balance_after_bet]
+
+    padw drop movup.3
+    # [current turn player pub key index + 3, 0, 0, 0, player_balance_after_bet]
+    exec.account::set_item
+    dropw dropw
+    # []
+end
+
+
+begin   
+    dropw
+
+    call.play_raise 
+    # => [...]
+
+    dropw
+    exec.note::get_assets drop mem_loadw
+    # => [ASSET, ...]
+
+    # load the asset and add it to the account
+    call.wallet::receive_asset
+    # => [...]
+
+    dropw
+end

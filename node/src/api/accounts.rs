@@ -7,6 +7,7 @@ use aze_lib::client::{
     AzeGameMethods,
     AzeTransactionTemplate,
     SendCardTransactionData,
+    PlayRaiseTransactionData,
 };
 use aze_lib::constants::BUY_IN_AMOUNT;
 use aze_lib::notes::{ consume_notes, mint_note };
@@ -16,7 +17,6 @@ use aze_types::accounts::{
     AccountCreationResponse,
     PlayerAccountCreationResponse,
 };
-use aze_lib::notes::create_send_card_note;
 use miden_lib::{ transaction, AuthScheme };
 use miden_objects::{
     assets::TokenSymbol,
@@ -193,10 +193,78 @@ pub async fn create_aze_player_account() -> Result<
     )
 }
 
+#[get("/v1/game/play-raise")]
+pub async fn play_raise() -> Result<Json<AccountCreationResponse>, AccountCreationError> {
+    let mut client: AzeClient = create_aze_client();
+
+    let (game_account, _) = client
+        .new_game_account(AzeAccountTemplate::GameAccount {
+            mutable_code: false,
+            storage_mode: AccountStorageMode::Local, // for now
+        })
+        .unwrap();
+    let game_account_id = game_account.id();
+    print_slots(&client, game_account_id).await;
+
+    let (player_account, _) = client
+        .new_game_account(AzeAccountTemplate::PlayerAccount {
+            mutable_code: false,
+            storage_mode: AccountStorageMode::Local, // for now
+        })
+        .unwrap();
+    let player_account_id = player_account.id();
+
+    let (faucet_account, _) = client
+        .new_account(AccountTemplate::FungibleFaucet {
+            token_symbol: TokenSymbol::new("MATIC").unwrap(),
+            decimals: 8,
+            max_supply: 1_000_000_000,
+            storage_mode: AccountStorageMode::Local,
+        })
+        .unwrap();
+    let faucet_account_id = faucet_account.id();
+
+    let note = mint_note(&mut client, player_account_id, faucet_account_id, NoteType::Public).await;
+    println!("Minted note");
+    consume_notes(&mut client, player_account_id, &[note]).await;
+
+    let fungible_asset = FungibleAsset::new(faucet_account_id, BUY_IN_AMOUNT).unwrap();
+    let sender_account_id = player_account_id;
+    let target_account_id = game_account_id;
+
+    let playraise_txn_data = PlayRaiseTransactionData::new(
+        Asset::Fungible(fungible_asset),
+        sender_account_id,
+        game_account_id
+    );
+    let transaction_template = AzeTransactionTemplate::PlayRaise(playraise_txn_data);
+    let txn_request = client.build_aze_play_raise_tx_request(transaction_template).unwrap();
+    execute_tx_and_sync(&mut client, txn_request.clone()).await;
+
+    let note_id = txn_request.expected_output_notes()[0].id();
+    let note = client.get_input_note(note_id).unwrap();
+
+    let tx_template = TransactionTemplate::ConsumeNotes(target_account_id, vec![note.id()]);
+    let tx_request = client.build_transaction_request(tx_template).unwrap();
+    execute_tx_and_sync(&mut client, tx_request).await;
+
+    println!("Executed and synced with node");
+    print_slots(&client, target_account_id).await;
+
+    Ok(Json(AccountCreationResponse { is_created: true }))
+}
+
 async fn print_account_status(client: &AzeClient, account_id: AccountId) {
     let (regular_account, _seed) = client.get_account(account_id).unwrap();
     println!("Account asset count --> {:?}", regular_account.vault().assets().count());
     println!("Account storage root --> {:?}", regular_account.storage().root());
     println!("Account slot 100 --> {:?}", regular_account.storage().get_item(100));
     println!("Account slot 101 --> {:?}", regular_account.storage().get_item(101));
+}
+
+async fn print_slots(client: &AzeClient, account_id: AccountId) {
+    let (regular_account, _seed) = client.get_account(account_id).unwrap();
+    for i in 1..100 {
+        println!("Account slot {:?} --> {:?}", i, regular_account.storage().get_item(i));
+    }
 }

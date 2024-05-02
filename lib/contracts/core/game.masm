@@ -5,18 +5,18 @@ use.std::crypto::dsa::rpo_falcon512
 use.miden::contracts::wallets::basic->basic_wallet
 use.miden::contracts::auth::basic
 
-# index corresponding to the information saved
 const.PLAYER_1_PUB_KEY_INDEX=65 # use this index to find other player pub key slot index which would always be second to the player account id
-const.SMALL_BLIND_INDEX=56
-const.BIG_BLIND_INDEX=57
-const.BUY_IN_INDEX=58
-const.NO_OF_PLAYERS_INDEX=59
+const.SMALL_BLIND_INDEX=54
+const.BIG_BLIND_INDEX=55
+const.BUY_IN_INDEX=56
+const.NO_OF_PLAYERS_INDEX=57
+const.RAISER_INDEX=58
+const.CURRENT_PLAYER_PUB_KEY_INDEX=60 # at 63 we stored pub key for current player (it will contain)
+const.HIGHEST_BET_SLOT_INDEX=61 # highest bet amount which player will try to match with call
 const.CURRENT_TURN_INDEX=60 # index of the player whose turn it is currently
-const.RAISER_INDEX=61
-const.CURRENT_TURN_PLAYER_PUB_KEY_INDEX=63 # need to check it's storage initially small blind public key on slot 62
-const.CURRENT_PLAYER_PUB_KEY_INDEX=62 # at 63 we stored pub key for current player (it will contain)
-const.HIGHEST_BET_SLOT_INDEX=64 # highest bet amount which player will try to match with call
-const.CURRENT_PHASE=65 # whole game is divided into 4 phases
+const.CURRENT_TURN_PLAYER_PUB_KEY_INDEX=62 # need to check it's storage initially small blind public key on slot 62
+const.CURRENT_PHASE=62 # whole game is divided into 4 phases
+
 # game events 
 # TODO: fix some storage for the value corresponding to these events 
 const.PLAYER_BETTED_AMOUNT=169 # check slot (169 - 100) 
@@ -114,8 +114,6 @@ end
 
 export.play_raise
 
-    
-
     # Tasks need to be performed:
     # - get raise amount ✅
     # - update highest bet slot 62 ✅
@@ -128,7 +126,8 @@ export.play_raise
 
 
     ## raise amount = current player bet - it should be (bet amount - last call amount) ??
-    push.CURRENT_PLAYER_PUB_KEY_INDEX
+    push.CURRENT_PLAYER_PUB_KEY_INDEX exec.account::get_item
+    
     # => [0, 0, 0, current turn player pub key index]
     drop drop drop
     # [current turn player pub key index]
@@ -136,105 +135,95 @@ export.play_raise
     push.2 add
     # [current turn pub key index + 2]
 
-    exec.account.get_item drop drop drop dup
-    # [player_bet, player_bet]
-
-    push.HIGHEST_BET_SLOT_INDEX drop drop drop
-    #[last_highest_bet, player_bet, player_bet]
-
-    swap sub
-    #[raise_ampunt, player_bet]
-
-    mem_store.0
-    #[player_bet]
+    exec.account::get_item drop drop drop 
+    # [player_bet]
 
     ## update highest bet
+    padw drop push.HIGHEST_BET_SLOT_INDEX
+    #[HIGHEST_BET_SLOT_INDEX, 0, 0, 0, player_bet]
     
-    push.HIGHEST_BET_SLOT_INDEX drop drop drop 
-    #[HIGHEST_BET_SLOT_INDEX, player_bet]
-
-    exec.account.set_item
+    exec.account::set_item
+    dropw dropw dropw
     #[]
 
     ## update raiser
 
-    push.CURRENT_PLAYER_PUB_KEY_INDEX drop drop drop
+    push.CURRENT_PLAYER_PUB_KEY_INDEX 
     #[CURRENT_PLAYER_PUB_KEY_INDEX]
 
-    push.RAISER_INDEX
-    #[RAISER_INDEX, CURRENT_PLAYER_PUB_KEY_INDEX]
+    padw drop push.RAISER_INDEX
+    #[RAISER_INDEX, 0, 0, 0, CURRENT_PLAYER_PUB_KEY_INDEX]
 
-    exec.account.set_item
+    exec.account::set_item
+    dropw dropw 
     #[]
 
 
     ## update the remaining balance of player 
 
-    push.CURRENT_PLAYER_PUB_KEY_INDEX drop drop drop
-    # [CURRENT_PLAYER_PUB_KEY_INDEX]
+    push.CURRENT_PLAYER_PUB_KEY_INDEX exec.account::get_item drop drop drop
+    # [current turn player pub key index]
 
     push.3 add
-    # [CURRENT_PLAYER_PUB_KEY_INDEX + 3]
+    # [current turn player pub key index + 3]
 
     dup
-    # [CURRENT_PLAYER_PUB_KEY_INDEX + 3, CURRENT_PLAYER_PUB_KEY_INDEX + 3]
+    # [current turn player pub key index + 3, current turn player pub key index + 3]
 
 
-    exec.account.get_item drop drop drop 
-    # [player_remaining_balance, CURRENT_PLAYER_PUB_KEY_INDEX + 3]
+    exec.account::get_item drop drop drop 
+    # [player_remaining_balance, current turn player pub key index + 3]
 
-    push.HIGHEST_BET_SLOT_INDEX drop drop drop
-    # [HIGHEST_BET_SLOT_INDEX, player_remaining_balance, CURRENT_PLAYER_PUB_KEY_INDEX + 3]
+    push.HIGHEST_BET_SLOT_INDEX
+    # [HIGHEST_BET_SLOT_INDEX, player_remaining_balance, current turn player pub key index + 3]
 
-    exec.account.get_item drop drop drop 
-    # [player_bet, player_remaining_balance, CURRENT_PLAYER_PUB_KEY_INDEX + 3] -> ig here we need player_remaining_balance and then player_bet or we need to take it's absolute value
+    exec.account::get_item drop drop drop 
+    # [player_bet, player_remaining_balance, current turn player pub key index + 3] -> ig here we need player_remaining_balance and then player_bet or we need to take it's absolute value
     
+    dup.1 dup.1 gte assert
+    # [0/1, player_bet, player_remaining_balance, current turn player pub key index + 3]
+    # [player_bet, player_remaining_balance, current turn player pub key index + 3]
+
     sub
-    # [player_balance_after_bet, CURRENT_PLAYER_PUB_KEY_INDEX + 3]
-
-    dup push.0 
-    # [0, player_balance_after_bet ,player_balance_after_bet, CURRENT_PLAYER_PUB_KEY_INDEX + 3]
-
-    gte
-    # [1/0 ,player_balance_after_bet, CURRENT_PLAYER_PUB_KEY_INDEX + 3]
-
-    assert -> what is the use of assert here ??
-    # [player_balance_after_bet, CURRENT_PLAYER_PUB_KEY_INDEX + 3]
+    # [player_balance_after_bet, current turn player pub key index + 3]
 
     swap
-    # [CURRENT_PLAYER_PUB_KEY_INDEX + 3, player_balance_after_bet]
+    # [current turn player pub key index + 3, player_balance_after_bet]
 
-    exec.account.set_item
+    padw drop movup.3
+    # [current turn player pub key index + 3, 0, 0, 0, player_balance_after_bet]
+    exec.account::set_item
+    dropw dropw
     # []
 
     # need to confirm the phase logic 
     # - update phase/round n sum
 
-    push.CURRENT_TURN_INDEX drop drop drop
+    # push.CURRENT_TURN_INDEX drop drop drop
     #[CURRENT_TURN_INDEX]
 
-    push.4 add
+    # push.4 add
     #[CURRENT_TURN_INDEX+4]
 
-    push.CURRENT_PHASE drop drop drop
+    # push.CURRENT_PHASE drop drop drop
     #[CURRENT_PHASE, CURRENT_TURN_INDEX+4]
 
-    add push.1 swap sub dup
+    # add push.1 swap sub dup
     #[CURRENT_PHASE + CURRENT_TURN_INDEX + 4 -1, CURRENT_PHASE + CURRENT_TURN_INDEX + 4 -1 ]
 
-    exec.account.get_item drop drop drop 
+    # exec.account::get_item drop drop drop 
     #[phase_n_sum, CURRENT_PHASE + CURRENT_TURN_INDEX + 4 -1]
 
-    push.HIGHEST_BET_SLOT_INDEX drop drop drop
+    # push.HIGHEST_BET_SLOT_INDEX drop drop drop
     #[HIGHEST_BET_SLOT_INDEX, phase_n_sum, CURRENT_PHASE + CURRENT_TURN_INDEX + 4 -1]
 
-    exec.account.get_item drop drop drop 
+    # exec.account::get_item drop drop drop 
     #[highest_bet, phase_n_sum, CURRENT_PHASE + CURRENT_TURN_INDEX + 4 -1]
 
-    add
+    # add
     #[highest_bet + phase_n_sum, CURRENT_PHASE + CURRENT_TURN_INDEX + 4 -1]
 
-    swap exec.account.set_item
+    # swap exec.account::set_item
     # []
 end
 
@@ -243,4 +232,3 @@ end
 export.basic_wallet::receive_asset
 export.basic_wallet::send_asset
 export.basic::auth_tx_rpo_falcon512
-
