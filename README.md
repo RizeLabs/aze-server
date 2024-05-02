@@ -2,7 +2,7 @@
 
 ### Build and run 
 - Clone the repo
-- change the directory `cd aze-server` 
+- change the directory `cd aze-server/node` 
 - build the project `cargo build`
 - run the server `cargo run --release`
 
