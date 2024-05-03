@@ -25,9 +25,12 @@ fn construct_game_constructor_storage(auth_scheme: AuthScheme) -> Vec<SlotItem> 
     // generate 52 cards
     let mut cards: Vec<SlotItem> = vec![];
     let mut player_pub_keys: Vec<SlotItem> = vec![];
+
+    // TODO fix this values and make the dynamic based on game details
+
     let small_blind_amt = 5u8;
     let buy_in_amt = 100u8;
-    let no_of_players = 4u8;
+    let no_of_players = 4u8; 
     let flop_index = no_of_players * 2 + 1;
 
     let mut slot_index = 1u8;

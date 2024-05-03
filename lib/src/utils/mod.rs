@@ -22,6 +22,7 @@ use figment::{
     Figment,
 };
 use::rand::Rng;
+use crate::client::AzeClient;
 
 // use uuid::Uuid;
 
@@ -54,4 +55,20 @@ pub fn get_random_coin() -> RpoRandomCoin {
     let coin_seed: [u64; 4] = rng.gen();
 
     RpoRandomCoin::new(coin_seed.map(Felt::new))
+}
+
+// TODO hide this methods under debug feature
+pub async fn log_account_status(client: &AzeClient, account_id: AccountId) {
+    let (regular_account, _seed) = client.get_account(account_id).unwrap();
+    println!("Account asset count --> {:?}", regular_account.vault().assets().count());
+    println!("Account storage root --> {:?}", regular_account.storage().root());
+    println!("Account slot 100 --> {:?}", regular_account.storage().get_item(100));
+    println!("Account slot 101 --> {:?}", regular_account.storage().get_item(101));
+}
+
+pub async fn log_slots(client: &AzeClient, account_id: AccountId) {
+    let (regular_account, _seed) = client.get_account(account_id).unwrap();
+    for i in 1..100 {
+        println!("Account slot {:?} --> {:?}", i, regular_account.storage().get_item(i));
+    }
 }
