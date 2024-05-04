@@ -103,7 +103,7 @@ fn construct_game_constructor_storage(auth_scheme: AuthScheme) -> Vec<SlotItem> 
             },
         },
         SlotItem {
-            index: slot_index + 5, // storing flop index here
+            index: slot_index + 5, // raiser pub key index
             slot: StorageSlot {
                 slot_type: StorageSlotType::Value { value_arity: 0 },
                 value: [Felt::ZERO, Felt::ZERO, Felt::ZERO, Felt::ZERO],

@@ -106,7 +106,7 @@ async fn test_create_aze_game_account() {
 
     // check are the cards has been correctly placed
     for card_suit in 1..5 {
-        for card_number in 1..13 {
+        for card_number in 1..14 {
             let slot_item = RpoDigest::new([
                 Felt::from(card_suit as u8),
                 Felt::from(card_number as u8),
@@ -123,7 +123,7 @@ async fn test_create_aze_game_account() {
     // checking next turn
     assert_eq!(
         game_account_storage.get_item(slot_index),
-        RpoDigest::new([Felt::ZERO, Felt::ZERO, Felt::ZERO, Felt::ZERO])
+        RpoDigest::new([Felt::from(flop_index as u8), Felt::ZERO, Felt::ZERO, Felt::ZERO])
     );
 
     slot_index = slot_index + 1;
@@ -161,7 +161,7 @@ async fn test_create_aze_game_account() {
     // checking flop index slot
     assert_eq!(
         game_account_storage.get_item(slot_index),
-        RpoDigest::new([Felt::from(flop_index), Felt::ZERO, Felt::ZERO, Felt::ZERO])
+        RpoDigest::new([Felt::ZERO, Felt::ZERO, Felt::ZERO, Felt::ZERO])
     );
 }
 
