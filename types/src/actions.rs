@@ -9,6 +9,7 @@ use actix_web::{
     HttpResponse,
 };
 use derive_more::Display;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Display)]
 pub enum GameActionError {
@@ -16,6 +17,7 @@ pub enum GameActionError {
     BadActionRequest,
 }
 
+#[derive(Deserialize, Serialize)]
 pub struct GameActionResponse {
     pub is_taken: bool,
 }
