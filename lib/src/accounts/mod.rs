@@ -19,19 +19,21 @@ use miden_objects::{
 };
 
 use miden_lib::{ transaction::TransactionKernel, AuthScheme };
+use crate::utils::GameStorageSlotData;
 
-fn construct_game_constructor_storage(auth_scheme: AuthScheme) -> Vec<SlotItem> {
+fn construct_game_constructor_storage(
+    auth_scheme: AuthScheme,
+    slot_data: GameStorageSlotData
+) -> Vec<SlotItem> {
     let mut game_info: Vec<SlotItem> = vec![];
     // generate 52 cards
     let mut cards: Vec<SlotItem> = vec![];
     let mut player_pub_keys: Vec<SlotItem> = vec![];
 
-    // TODO fix this values and make the dynamic based on game details
-
-    let small_blind_amt = 5u8;
-    let buy_in_amt = 100u8;
-    let no_of_players = 4u8; 
-    let flop_index = no_of_players * 2 + 1;
+    let small_blind_amt = slot_data.small_blind_amt();
+    let buy_in_amt = slot_data.buy_in_amt();
+    let no_of_players = slot_data.player_count();
+    let flop_index = slot_data.flop_index();
 
     let mut slot_index = 1u8;
 
@@ -116,14 +118,19 @@ fn construct_game_constructor_storage(auth_scheme: AuthScheme) -> Vec<SlotItem> 
             index: slot_index + 7, // storing curr turn pub key index
             slot: StorageSlot {
                 slot_type: StorageSlotType::Value { value_arity: 0 },
-                value: [Felt::from(65 as u8), Felt::ZERO, Felt::ZERO, Felt::ZERO],
+                value: [
+                    Felt::from(slot_data.current_turn_index()),
+                    Felt::ZERO,
+                    Felt::ZERO,
+                    Felt::ZERO,
+                ],
             },
         },
         SlotItem {
             index: slot_index + 8, // storing highest bet
             slot: StorageSlot {
                 slot_type: StorageSlotType::Value { value_arity: 0 },
-                value: [Felt::from(small_blind_amt as u8), Felt::ZERO, Felt::ZERO, Felt::ZERO],
+                value: [Felt::from(slot_data.highest_bet()), Felt::ZERO, Felt::ZERO, Felt::ZERO],
             },
         }
     ];
@@ -133,7 +140,7 @@ fn construct_game_constructor_storage(auth_scheme: AuthScheme) -> Vec<SlotItem> 
     for _ in 0..no_of_players {
         let player_slots = vec![
             SlotItem {
-                index: slot_index,      // pub key
+                index: slot_index, // pub key
                 slot: StorageSlot {
                     slot_type: StorageSlotType::Value { value_arity: 0 },
                     value: [
@@ -145,17 +152,22 @@ fn construct_game_constructor_storage(auth_scheme: AuthScheme) -> Vec<SlotItem> 
                 },
             },
             SlotItem {
-                index: slot_index + 2,  // current bet
+                index: slot_index + 2, // current bet
                 slot: StorageSlot {
                     slot_type: StorageSlotType::Value { value_arity: 0 },
-                    value: [Felt::from(small_blind_amt as u8), Felt::ZERO, Felt::ZERO, Felt::ZERO],
+                    value: [Felt::from(slot_data.player_bet()), Felt::ZERO, Felt::ZERO, Felt::ZERO],
                 },
             },
-            SlotItem { 
-                index: slot_index + 3,  // player balance
+            SlotItem {
+                index: slot_index + 3, // player balance
                 slot: StorageSlot {
                     slot_type: StorageSlotType::Value { value_arity: 0 },
-                    value: [Felt::from(10 as u8), Felt::ZERO, Felt::ZERO, Felt::ZERO],
+                    value: [
+                        Felt::from(slot_data.player_balance()),
+                        Felt::ZERO,
+                        Felt::ZERO,
+                        Felt::ZERO,
+                    ],
                 },
             }
         ];
@@ -177,7 +189,8 @@ fn construct_game_constructor_storage(auth_scheme: AuthScheme) -> Vec<SlotItem> 
 pub fn create_basic_aze_game_account(
     init_seed: [u8; 32],
     auth_scheme: AuthScheme,
-    account_type: AccountType
+    account_type: AccountType,
+    slot_data: GameStorageSlotData
 ) -> Result<(Account, Word), AccountError> {
     if matches!(account_type, AccountType::FungibleFaucet | AccountType::NonFungibleFaucet) {
         return Err(
@@ -198,7 +211,7 @@ pub fn create_basic_aze_game_account(
         &account_assembler
     )?;
 
-    let game_constructor_item = construct_game_constructor_storage(auth_scheme);
+    let game_constructor_item = construct_game_constructor_storage(auth_scheme, slot_data);
 
     // initializing game storage with 52 cards
     let aze_game_account_storage = AccountStorage::new(game_constructor_item)?;

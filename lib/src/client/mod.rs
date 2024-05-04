@@ -37,6 +37,7 @@ use miden_objects::crypto::rand::RpoRandomCoin;
 use miden_objects::assets::Asset;
 use miden_tx::{ DataStore, TransactionExecutor };
 use rand::{ rngs::ThreadRng, Rng };
+use crate::utils::GameStorageSlotData;
 
 pub type AzeClient = Client<TonicRpcClient, RpoRandomCoin, SqliteStore>;
 
@@ -110,13 +111,15 @@ pub trait AzeGameMethods {
     ) -> Result<TransactionRequest, ClientError>;
     fn new_game_account(
         &mut self,
-        template: AzeAccountTemplate
+        template: AzeAccountTemplate,
+        slot_data: GameStorageSlotData
     ) -> Result<(Account, Word), ClientError>;
     fn new_aze_game_account(
         &mut self,
         mutable_code: bool,
         rng: &mut ThreadRng,
-        account_storage_mode: AccountStorageMode
+        account_storage_mode: AccountStorageMode,
+        slot_data: GameStorageSlotData
     ) -> Result<(Account, Word), ClientError>;
     fn new_aze_player_account(
         &mut self,
@@ -168,7 +171,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> AzeGameMethods for Client<N, R, S> 
 
     fn new_game_account(
         &mut self,
-        template: AzeAccountTemplate
+        template: AzeAccountTemplate,
+        slot_data: GameStorageSlotData
     ) -> Result<(Account, Word), ClientError> {
         let mut rng = rand::thread_rng();
 
@@ -176,7 +180,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> AzeGameMethods for Client<N, R, S> 
             AzeAccountTemplate::PlayerAccount { mutable_code, storage_mode } =>
                 self.new_aze_player_account(mutable_code, &mut rng, storage_mode),
             AzeAccountTemplate::GameAccount { mutable_code, storage_mode } =>
-                self.new_aze_game_account(mutable_code, &mut rng, storage_mode),
+                self.new_aze_game_account(mutable_code, &mut rng, storage_mode, slot_data),
         })?;
 
         Ok(account_and_seed)
@@ -186,7 +190,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> AzeGameMethods for Client<N, R, S> 
         &mut self,
         mutable_code: bool, // will remove it later on
         rng: &mut ThreadRng,
-        account_storage_mode: AccountStorageMode
+        account_storage_mode: AccountStorageMode,
+        slot_data: GameStorageSlotData
     ) -> Result<(Account, Word), ClientError> {
         if let AccountStorageMode::OnChain = account_storage_mode {
             todo!("Recording the account on chain is not supported yet");
@@ -204,7 +209,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> AzeGameMethods for Client<N, R, S> 
         let (account, seed) = create_basic_aze_game_account(
             init_seed,
             auth_scheme,
-            AccountType::RegularAccountImmutableCode
+            AccountType::RegularAccountImmutableCode,
+            slot_data
         ).unwrap();
 
         // will do insert account later on since there is some type mismatch due to miden object crate

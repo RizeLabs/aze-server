@@ -1,48 +1,76 @@
 use actix_web::{
     error::ResponseError,
     get,
-    http::{header::ContentType, StatusCode},
-    post, put,
+    http::{ header::ContentType, StatusCode },
+    post,
+    put,
     web::Data,
     web::Json,
     web::Path,
     HttpResponse,
 };
 use derive_more::Display;
-use aze_types::actions::{GameActionError, GameActionResponse};
-use aze_lib::utils::{log_account_status, log_slots};
+use aze_types::actions::{ GameActionError, GameActionResponse };
+use aze_lib::utils::{ GameStorageSlotData, log_account_status, log_slots };
 use aze_lib::executor::execute_tx_and_sync;
 use aze_lib::constants::BUY_IN_AMOUNT;
-use aze_lib::client::{AzeClient, AzeAccountTemplate, create_aze_client, PlayRaiseTransactionData, AzeTransactionTemplate, AzeGameMethods};
-use miden_client::client::{ 
-    accounts::{AccountStorageMode, AccountTemplate},
+use aze_lib::client::{
+    AzeClient,
+    AzeAccountTemplate,
+    create_aze_client,
+    PlayRaiseTransactionData,
+    AzeTransactionTemplate,
+    AzeGameMethods,
+};
+use miden_client::client::{
+    accounts::{ AccountStorageMode, AccountTemplate },
     transactions::transaction_request::TransactionTemplate,
 };
-use miden_objects::{
-    assets::{TokenSymbol, Asset, FungibleAsset},
-    notes::NoteType,
-};
+use miden_objects::{ assets::{ TokenSymbol, Asset, FungibleAsset }, notes::NoteType };
 use aze_lib::notes::{ consume_notes, mint_note };
-
 
 #[post("/v1/game/action")]
 pub async fn aze_poker_game_action() -> Result<Json<GameActionResponse>, GameActionError> {
     let mut client: AzeClient = create_aze_client();
 
+    let small_blind_amt = 5u8;
+    let buy_in_amt = 100u8;
+    let no_of_players = 4u8;
+    let current_turn_index = 65u8;
+    let player_balance = 10u8;
+
+    let game_storage_slot_data = GameStorageSlotData::new(
+        small_blind_amt,
+        buy_in_amt,
+        no_of_players,
+        current_turn_index,
+        small_blind_amt,
+        small_blind_amt,
+        player_balance
+    );
+
     let (game_account, _) = client
-        .new_game_account(AzeAccountTemplate::GameAccount {
-            mutable_code: false,
-            storage_mode: AccountStorageMode::Local, // for now
-        })
+        .new_game_account(
+            AzeAccountTemplate::GameAccount {
+                mutable_code: false,
+                storage_mode: AccountStorageMode::Local, // for now
+            },
+            game_storage_slot_data
+        )
         .unwrap();
     let game_account_id = game_account.id();
     log_slots(&client, game_account_id).await;
 
+    let slot_data = GameStorageSlotData::default();
+
     let (player_account, _) = client
-        .new_game_account(AzeAccountTemplate::PlayerAccount {
-            mutable_code: false,
-            storage_mode: AccountStorageMode::Local, // for now
-        })
+        .new_game_account(
+            AzeAccountTemplate::PlayerAccount {
+                mutable_code: false,
+                storage_mode: AccountStorageMode::Local, // for now
+            },
+            slot_data
+        )
         .unwrap();
     let player_account_id = player_account.id();
 
@@ -83,6 +111,5 @@ pub async fn aze_poker_game_action() -> Result<Json<GameActionResponse>, GameAct
     println!("Executed and synced with node");
     log_slots(&client, target_account_id).await;
 
-    Ok(Json(GameActionResponse { is_taken: true }))   
+    Ok(Json(GameActionResponse { is_taken: true }))
 }
-

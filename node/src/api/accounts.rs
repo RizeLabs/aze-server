@@ -11,6 +11,8 @@ use aze_lib::client::{
 use aze_lib::constants::BUY_IN_AMOUNT;
 use aze_lib::notes::{ consume_notes, mint_note };
 use aze_lib::executor::execute_tx_and_sync;
+use aze_lib::utils::GameStorageSlotData;
+
 use aze_types::accounts::{
     AccountCreationError,
     AccountCreationResponse,
@@ -25,14 +27,11 @@ use miden_objects::{
     notes::NoteType,
 };
 use miden_client::client::{
-        accounts::{ AccountTemplate, AccountStorageMode },
-        transactions::transaction_request::TransactionTemplate,
-    };
-
-use actix_web::{
-    get,
-    web::Json,
+    accounts::{ AccountTemplate, AccountStorageMode },
+    transactions::transaction_request::TransactionTemplate,
 };
+
+use actix_web::{ get, web::Json };
 
 // TODO: pass account id of the players as request object in this game
 #[get("/v1/game/create-account")]
@@ -41,13 +40,17 @@ pub async fn create_aze_game_account() -> Result<
     AccountCreationError
 > {
     let mut client: AzeClient = create_aze_client();
+    let slot_data = GameStorageSlotData::default();
 
     // TODO: creating player just for testing purposes
     let (player_account, _) = client
-        .new_game_account(AzeAccountTemplate::PlayerAccount {
-            mutable_code: false,
-            storage_mode: AccountStorageMode::Local, // for now
-        })
+        .new_game_account(
+            AzeAccountTemplate::PlayerAccount {
+                mutable_code: false,
+                storage_mode: AccountStorageMode::Local, // for now
+            },
+            slot_data.clone()
+        )
         .unwrap();
 
     let (faucet_account, _) = client
@@ -66,10 +69,13 @@ pub async fn create_aze_game_account() -> Result<
     let player_account_ids = vec![player_account.id()];
 
     let (game_account, _) = client
-        .new_game_account(AzeAccountTemplate::GameAccount {
-            mutable_code: false,
-            storage_mode: AccountStorageMode::Local, // for now
-        })
+        .new_game_account(
+            AzeAccountTemplate::GameAccount {
+                mutable_code: false,
+                storage_mode: AccountStorageMode::Local, // for now
+            },
+            slot_data
+        )
         .unwrap();
 
     let game_account_id = game_account.id();

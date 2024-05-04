@@ -2,4 +2,4 @@
 endpoint = { protocol = "http", host = "localhost", port = 57291 }
 
 [store]
-database_filepath = "/tmp/store.sqlite3"
+database_filepath = "database.sqlite3"
