@@ -17,6 +17,8 @@ const.CURRENT_TURN_PLAYER_PUB_KEY_INDEX=63 # need to check it's storage initiall
 const.CURRENT_PLAYER_PUB_KEY_INDEX=62 # at 63 we stored pub key for current player (it will contain)
 const.HIGHEST_BET_SLOT_INDEX=64 # highest bet amount which player will try to match with call
 
+# TODO: player ith hand would be at player ith accountid index + 11th index
+
 # game events 
 # TODO: fix some storage for the value corresponding to these events 
 const.PLAYER_BETTED_AMOUNT=169 # check slot (169 - 100) 
@@ -105,6 +107,75 @@ export.play_call
 
     # TODO: need to add procedure for updating player turns
 end
+
+# TODO: need to check does on loading using loc_load the value comes in stack of this 
+# procedure context or not else use the mem_load instruction
+
+# storing index of the player whose hand we will evaluate 
+proc.store_current_player_index.1
+    loc_store.0
+end 
+
+# loading the index of the player whose hand we will evaluate
+proc.load_current_player_index.1
+    loc_load.0
+end 
+
+# Description: This procedure should be called at the end of the game it expects the user hand and the community cards
+# it will return the order of the hand
+# this method expects player index whose cards need to be evaluated 
+# this method assumes that 
+
+# TODO: need to write procedures for different hands total 10 hands 
+
+export.allot_points
+    exec.load_current_player_index
+    # => [player index]
+    push.11 mul 
+    # => [player index * 2]
+    push.64 add 
+    # => [player index *  + 64] This would be the index of the slot where player hand exist 
+    # TODO: it should not be empty means player hasn't submitted their hand 
+    # => exec.account::get_item 
+    # => [hand type, comm card 1 index, comm card 2 index, comm card 3 index ]
+    # => asumming here we implemented hand checking logic 
+    # => [player index] at the end the stack should contain the player index on the top and nothing else 
+end 
+
+# Description: This procedure should be called at the end of the game to allot points to the players based on the order of their hands
+# this procedure currently work with a major assumption of cards not being encrypted 
+
+export.play_end 
+    # play end procedure task
+    # TODO: check how much who won how much amount
+    # TODO: check who holds which cards 
+    # TODO: rate the hands in descending order
+    # TODO: allot points to the players based on the order 
+
+    # assumptions: 
+    # TODO: currently cards on the user end are not encrypted and everyone knows what card does a user holds 
+
+    push.1 
+    # dup # for the first player dup
+
+    # looping down till the no of players
+    while.true 
+        exec.store_current_player_index        
+        exec.allot_points dup
+        # => [1]
+        push.1 add dup
+        # => [2, 2] [next player index, next player index] 
+
+        push.NO_OF_PLAYERS_INDEX exec.account::get_item drop drop drop push.1 add 
+
+        # => [no of players + 1, next player index, next player index]
+        
+        eq 
+        push.1 sub # inversing 0 to 1 and 1 to 0
+        drop # droping the condition value 
+    end 
+
+end 
 
 # need to setup asm build first for this 
 # export.poker::play_call
