@@ -11,7 +11,7 @@ use aze_lib::client::{
 use aze_lib::constants::BUY_IN_AMOUNT;
 use aze_lib::notes::{ consume_notes, mint_note };
 use aze_lib::executor::execute_tx_and_sync;
-use aze_lib::utils::GameStorageSlotData;
+use aze_lib::storage::GameStorageSlotData;
 
 use aze_types::accounts::{
     AccountCreationError,
@@ -40,7 +40,7 @@ pub async fn create_aze_game_account() -> Result<
     AccountCreationError
 > {
     let mut client: AzeClient = create_aze_client();
-    let slot_data = GameStorageSlotData::default();
+    let slot_data = GameStorageSlotData::new(0, 0, 0, 0, 0, 0);
 
     // TODO: creating player just for testing purposes
     let (player_account, _) = client
@@ -49,7 +49,7 @@ pub async fn create_aze_game_account() -> Result<
                 mutable_code: false,
                 storage_mode: AccountStorageMode::Local, // for now
             },
-            slot_data.clone()
+            None
         )
         .unwrap();
 
@@ -74,7 +74,7 @@ pub async fn create_aze_game_account() -> Result<
                 mutable_code: false,
                 storage_mode: AccountStorageMode::Local, // for now
             },
-            slot_data
+            Some(slot_data)
         )
         .unwrap();
 

@@ -37,7 +37,7 @@ use miden_objects::crypto::rand::RpoRandomCoin;
 use miden_objects::assets::Asset;
 use miden_tx::{ DataStore, TransactionExecutor };
 use rand::{ rngs::ThreadRng, Rng };
-use crate::utils::GameStorageSlotData;
+use crate::storage::GameStorageSlotData;
 
 pub type AzeClient = Client<TonicRpcClient, RpoRandomCoin, SqliteStore>;
 
@@ -54,6 +54,7 @@ pub struct PlayRaiseTransactionData {
     asset: Asset,
     sender_account_id: AccountId,
     target_account_id: AccountId,
+    player_bet: u8
 }
 
 impl SendCardTransactionData {
@@ -79,11 +80,12 @@ impl PlayRaiseTransactionData {
     pub fn account_id(&self) -> AccountId {
         self.sender_account_id
     }
-    pub fn new(asset: Asset, sender_account_id: AccountId, target_account_id: AccountId) -> Self {
+    pub fn new(asset: Asset, sender_account_id: AccountId, target_account_id: AccountId, player_bet: u8) -> Self {
         Self {
             asset,
             sender_account_id,
             target_account_id,
+            player_bet
         }
     }
 }
@@ -112,7 +114,7 @@ pub trait AzeGameMethods {
     fn new_game_account(
         &mut self,
         template: AzeAccountTemplate,
-        slot_data: GameStorageSlotData
+        slot_data: Option<GameStorageSlotData>
     ) -> Result<(Account, Word), ClientError>;
     fn new_aze_game_account(
         &mut self,
@@ -172,7 +174,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> AzeGameMethods for Client<N, R, S> 
     fn new_game_account(
         &mut self,
         template: AzeAccountTemplate,
-        slot_data: GameStorageSlotData
+        slot_data: Option<GameStorageSlotData>
     ) -> Result<(Account, Word), ClientError> {
         let mut rng = rand::thread_rng();
 
@@ -180,7 +182,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> AzeGameMethods for Client<N, R, S> 
             AzeAccountTemplate::PlayerAccount { mutable_code, storage_mode } =>
                 self.new_aze_player_account(mutable_code, &mut rng, storage_mode),
             AzeAccountTemplate::GameAccount { mutable_code, storage_mode } =>
-                self.new_aze_game_account(mutable_code, &mut rng, storage_mode, slot_data),
+                self.new_aze_game_account(mutable_code, &mut rng, storage_mode, slot_data.unwrap()),
         })?;
 
         Ok(account_and_seed)
@@ -321,10 +323,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> AzeGameMethods for Client<N, R, S> 
         let account_id = transaction_template.account_id();
         let account_auth = self.store().get_account_auth(account_id)?;
 
-        let (sender_account_id, target_account_id, asset) = match transaction_template {
+        let (sender_account_id, target_account_id, asset, player_bet) = match transaction_template {
             AzeTransactionTemplate::PlayRaise(
-                PlayRaiseTransactionData { asset, sender_account_id, target_account_id },
-            ) => (sender_account_id, target_account_id, asset),
+                PlayRaiseTransactionData { asset, sender_account_id, target_account_id, player_bet },
+            ) => (sender_account_id, target_account_id, asset, player_bet),
             _ => panic!("Invalid transaction template"),
         };
 
@@ -336,7 +338,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> AzeGameMethods for Client<N, R, S> 
             target_account_id,
             [asset].to_vec(),
             NoteType::Public,
-            random_coin
+            random_coin,
+            player_bet
         )?;
 
         let recipient = created_note

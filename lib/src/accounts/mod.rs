@@ -19,7 +19,7 @@ use miden_objects::{
 };
 
 use miden_lib::{ transaction::TransactionKernel, AuthScheme };
-use crate::utils::GameStorageSlotData;
+use crate::storage::GameStorageSlotData;
 
 fn construct_game_constructor_storage(
     auth_scheme: AuthScheme,
@@ -155,7 +155,7 @@ fn construct_game_constructor_storage(
                 index: slot_index + 2, // current bet
                 slot: StorageSlot {
                     slot_type: StorageSlotType::Value { value_arity: 0 },
-                    value: [Felt::from(slot_data.player_bet()), Felt::ZERO, Felt::ZERO, Felt::ZERO],
+                    value: [Felt::ZERO, Felt::ZERO, Felt::ZERO, Felt::ZERO],
                 },
             },
             SlotItem {

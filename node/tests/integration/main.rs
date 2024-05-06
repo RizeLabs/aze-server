@@ -8,8 +8,9 @@ use aze_lib::client::{
 };
 use aze_lib::constants::BUY_IN_AMOUNT;
 use aze_lib::executor::execute_tx_and_sync;
-use aze_lib::utils::{ GameStorageSlotData, get_random_coin, load_config };
+use aze_lib::utils::{ get_random_coin, load_config };
 use aze_lib::notes::{ consume_notes, mint_note };
+use aze_lib::storage::GameStorageSlotData;
 use miden_client::{
     client::{
         accounts::{ AccountTemplate, AccountStorageMode },
@@ -91,7 +92,6 @@ async fn test_create_aze_game_account() {
         no_of_players,
         current_turn_index,
         small_blind_amt,
-        small_blind_amt,
         player_balance
     );
 
@@ -102,7 +102,7 @@ async fn test_create_aze_game_account() {
                 mutable_code: false,
                 storage_mode: AccountStorageMode::Local,
             },
-            slot_data
+            Some(slot_data)
         )
         .unwrap();
     let game_account_storage = game_account.storage();
@@ -174,7 +174,7 @@ async fn test_create_aze_game_account() {
 async fn test_cards_distribution() {
     let mut client: AzeClient = create_test_client();
 
-    let slot_data = GameStorageSlotData::default();
+    let slot_data = GameStorageSlotData::new(0, 0, 0, 0, 0, 0);
 
     let (game_account, _) = client
         .new_game_account(
@@ -182,7 +182,7 @@ async fn test_cards_distribution() {
                 mutable_code: false,
                 storage_mode: AccountStorageMode::Local,
             },
-            slot_data.clone()
+            Some(slot_data)
         )
         .unwrap();
 
@@ -196,7 +196,7 @@ async fn test_cards_distribution() {
                 mutable_code: false,
                 storage_mode: AccountStorageMode::Local,
             },
-            slot_data.clone()
+            None
         )
         .unwrap();
 
@@ -206,7 +206,7 @@ async fn test_cards_distribution() {
                 mutable_code: false,
                 storage_mode: AccountStorageMode::Local,
             },
-            slot_data
+            None
         )
         .unwrap();
 
@@ -283,7 +283,6 @@ async fn test_play_raise() {
         no_of_players,
         current_turn_index,
         small_blind_amt,
-        small_blind_amt,
         player_balance
     );
 
@@ -293,13 +292,11 @@ async fn test_play_raise() {
                 mutable_code: false,
                 storage_mode: AccountStorageMode::Local,
             },
-            game_slot_data.clone()
+            Some(game_slot_data.clone())
         )
         .unwrap();
 
     let game_account_storage = game_account.storage();
-
-    let slot_data = GameStorageSlotData::default();
 
     let (player_account, _) = client
         .new_game_account(
@@ -307,7 +304,7 @@ async fn test_play_raise() {
                 mutable_code: false,
                 storage_mode: AccountStorageMode::Local,
             },
-            slot_data
+            None
         )
         .unwrap();
 
@@ -326,12 +323,15 @@ async fn test_play_raise() {
     let sender_account_id = player_account.id();
     let target_account_id = game_account.id();
 
-    fund(&mut client, sender_account_id, faucet_account_id).await;
+    fund_account(&mut client, sender_account_id, faucet_account_id).await;
+
+    let player_bet = small_blind_amt;
 
     let playraise_txn_data = PlayRaiseTransactionData::new(
         Asset::Fungible(fungible_asset),
         sender_account_id,
-        target_account_id
+        target_account_id,
+        player_bet
     );
     let transaction_template = AzeTransactionTemplate::PlayRaise(playraise_txn_data);
     let txn_request = client.build_aze_play_raise_tx_request(transaction_template).unwrap();
@@ -441,7 +441,14 @@ async fn assert_slot_status(
         RpoDigest::new([Felt::from(no_of_players), Felt::ZERO, Felt::ZERO, Felt::ZERO])
     );
 
-    slot_index = slot_index + 3;
+    slot_index = slot_index + 1;
+    // checking raiser
+    assert_eq!(
+        game_account_storage.get_item(slot_index),
+        RpoDigest::new([Felt::from(slot_data.current_turn_index()), Felt::ZERO, Felt::ZERO, Felt::ZERO])
+    );
+
+    slot_index = slot_index + 2;
     // check current player index
     assert_eq!(
         game_account_storage.get_item(slot_index),
@@ -461,13 +468,15 @@ async fn assert_slot_status(
     );
 
     slot_index = slot_index + 6;
+    let player_bet = small_blind_amt;
+
     // check player bet
     assert_eq!(
         game_account_storage.get_item(slot_index),
-        RpoDigest::new([Felt::from(slot_data.player_bet()), Felt::ZERO, Felt::ZERO, Felt::ZERO])
+        RpoDigest::new([Felt::from(player_bet), Felt::ZERO, Felt::ZERO, Felt::ZERO])
     );
 
-    let remaining_balance = slot_data.player_balance() - slot_data.player_bet();
+    let remaining_balance = slot_data.player_balance() - player_bet;
 
     slot_index = slot_index + 1;
     // check player balance
@@ -484,7 +493,7 @@ async fn fund_account(client: &mut AzeClient, account_id: AccountId, faucet_acco
     consume_notes(client, account_id, &[note_2]).await;
 }
 
-async fn fund(client: &mut AzeClient, account_id: AccountId, faucet_account_id: AccountId) {
-    let note = mint_note(client, account_id, faucet_account_id, NoteType::Public).await;
-    consume_notes(client, account_id, &[note]).await;
-}
+// async fn fund(client: &mut AzeClient, account_id: AccountId, faucet_account_id: AccountId) {
+//     let note = mint_note(client, account_id, faucet_account_id, NoteType::Public).await;
+//     consume_notes(client, account_id, &[note]).await;
+// }

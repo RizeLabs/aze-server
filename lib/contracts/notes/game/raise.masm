@@ -13,39 +13,45 @@ const.CURRENT_PLAYER_PUB_KEY_INDEX=60 # at 63 we stored pub key for current play
 const.HIGHEST_BET_SLOT_INDEX=61 # highest bet amount which player will try to match with call
 
 proc.play_raise
+    # => [player_bet]
+    dup mem_store.0
+    # => [player_bet]
+    
+    padw drop push.HIGHEST_BET_SLOT_INDEX
+    exec.account::set_item
+    dropw dropw
+    # => []
+
+    mem_load.0
+    # => [player_bet]
+
     ## raise amount = current player bet - it should be (bet amount - last call amount) ??
     push.CURRENT_PLAYER_PUB_KEY_INDEX exec.account::get_item
-    
-    # => [0, 0, 0, current turn player pub key index]
+    # => [0, 0, 0, current turn player pub key index, player_bet]
+
     drop drop drop
-    # [current turn player pub key index]
+    # => [current turn player pub key index, player_bet]
 
     push.2 add
-    # [current turn pub key index + 2]
+    # => [current turn pub key index + 2, player_bet]
+    dup mem_store.1
+    # => [current turn pub key index + 2, player_bet]
 
-    exec.account::get_item drop drop drop 
-    # [player_bet]
-
-    ## update highest bet
-    padw drop push.HIGHEST_BET_SLOT_INDEX
-    #[HIGHEST_BET_SLOT_INDEX, 0, 0, 0, player_bet]
-    
+    padw drop movup.3
     exec.account::set_item
-    dropw dropw dropw
-    #[]
+    dropw dropw
+    # => []
 
     ## update raiser
-
-    push.CURRENT_PLAYER_PUB_KEY_INDEX 
-    #[CURRENT_PLAYER_PUB_KEY_INDEX]
+    mem_load.1 push.2 sub
+    # => [current turn pub key index]
 
     padw drop push.RAISER_INDEX
-    #[RAISER_INDEX, 0, 0, 0, CURRENT_PLAYER_PUB_KEY_INDEX]
+    #[RAISER_INDEX, 0, 0, 0, current turn pub key index]
 
     exec.account::set_item
     dropw dropw 
     #[]
-
 
     ## update the remaining balance of player 
 
@@ -57,7 +63,6 @@ proc.play_raise
 
     dup
     # [current turn player pub key index + 3, current turn player pub key index + 3]
-
 
     exec.account::get_item drop drop drop 
     # [player_remaining_balance, current turn player pub key index + 3]
@@ -88,6 +93,9 @@ end
 
 begin   
     dropw
+
+    push.0 exec.note::get_inputs drop
+    mem_loadw drop drop drop
 
     call.play_raise 
     # => [...]

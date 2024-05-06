@@ -11,7 +11,8 @@ use actix_web::{
 };
 use derive_more::Display;
 use aze_types::actions::{ GameActionError, GameActionResponse };
-use aze_lib::utils::{ GameStorageSlotData, log_account_status, log_slots };
+use aze_lib::utils::{ log_account_status, log_slots };
+use aze_lib::storage::GameStorageSlotData;
 use aze_lib::executor::execute_tx_and_sync;
 use aze_lib::constants::BUY_IN_AMOUNT;
 use aze_lib::client::{
@@ -39,12 +40,11 @@ pub async fn aze_poker_game_action() -> Result<Json<GameActionResponse>, GameAct
     let current_turn_index = 65u8;
     let player_balance = 10u8;
 
-    let game_storage_slot_data = GameStorageSlotData::new(
+    let slot_data = GameStorageSlotData::new(
         small_blind_amt,
         buy_in_amt,
         no_of_players,
         current_turn_index,
-        small_blind_amt,
         small_blind_amt,
         player_balance
     );
@@ -55,13 +55,11 @@ pub async fn aze_poker_game_action() -> Result<Json<GameActionResponse>, GameAct
                 mutable_code: false,
                 storage_mode: AccountStorageMode::Local, // for now
             },
-            game_storage_slot_data
+            Some(slot_data)
         )
         .unwrap();
     let game_account_id = game_account.id();
     log_slots(&client, game_account_id).await;
-
-    let slot_data = GameStorageSlotData::default();
 
     let (player_account, _) = client
         .new_game_account(
@@ -69,7 +67,7 @@ pub async fn aze_poker_game_action() -> Result<Json<GameActionResponse>, GameAct
                 mutable_code: false,
                 storage_mode: AccountStorageMode::Local, // for now
             },
-            slot_data
+            None
         )
         .unwrap();
     let player_account_id = player_account.id();
@@ -92,10 +90,13 @@ pub async fn aze_poker_game_action() -> Result<Json<GameActionResponse>, GameAct
     let sender_account_id = player_account_id;
     let target_account_id = game_account_id;
 
+    let player_bet = small_blind_amt;
+
     let playraise_txn_data = PlayRaiseTransactionData::new(
         Asset::Fungible(fungible_asset),
         sender_account_id,
-        game_account_id
+        game_account_id,
+        player_bet
     );
     let transaction_template = AzeTransactionTemplate::PlayRaise(playraise_txn_data);
     let txn_request = client.build_aze_play_raise_tx_request(transaction_template).unwrap();
