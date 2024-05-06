@@ -146,11 +146,67 @@ proc.load_current_player_index.1
     loc_load.0
 end 
 
-# hand verification procedures 
-proc.verify_high_card_hand
+# Description: this method would receive stack of cards and would return only the card numbers while retaining the sequence
+# inputs: # => [card 1 index, card 2 index, card 3 index, card 4 index, card 5 index]
+# output: # => [card 1 number, card 2 number, card 3 number, card 4 number, card 5 number]
+proc.get_card_numbers
+    exec.account::get_item
+    # => [0, is card encrypted, card number, card suit, card 2 index, card 3 index ... ]
+    drop drop 
+    # => [card 1 number, card suit ..]
+    swap drop 
+    # => [card 1 number, card 2 index ...]
+    swap exec.account::get_item
+    drop drop swap drop 
+    # => [card 2 number, card 1 number, card 3 index ...]
+    movup.3
+    # => [card 3 index, card 2 number, card 1 number, card 4 index, card 5 index]
+    exec.account::get_item drop drop swap drop 
+    # => [card 3 number, card 2 number, card 1 number, card 4 index, card 5 index]
+    movup.4
+    # => [card 4 index, card 3 number, card 2 number, card 1 number, card 5 index]
+    exec.account::get_item drop drop swap drop
+    # => [card 4 number, card 3 number, card 2 number, card 1 number, card 5 index]
+    movup.5
+    # => [card 5 index, card 4 number, card 3 number, card 2 number, card 1 number]
+    exec.account::get_item drop drop swap drop
+    # => [card 5 number, card 4 number, card 3 number, card 2 number, card 1 number]
 end 
 
+# hand verification procedures 
+# all the verify hand procedures will receive stack with slot index sequence of cards a player has 
+# input: => [player card 1 index, player card 2 index , comm card 1 slot index, comm card 2 slot index, comm card 3 slot index]
+proc.verify_high_card_hand
+    # we don't need to verify anything for now in the high card 
+    repeat.5
+        drop
+    end 
+    push.1
+end 
+
+proc.store_verify_one_pair_hand_data.2
+    loc_store.1
+end
+
+proc.load_verify_one_pair_hand_data.2
+    loc_load.1
+end
+
+# inputs => [card 1 index, card 2 index, card 3 index, card 4 index, card 5 index]
+# output => [0/1] is it the claimed hand
 proc.verify_one_pair_hand
+    # loading the cards in stack
+    # card => [card suit, card number, is card encrypted, 0]
+    exec.get_card_numbers
+    # => [card 5 number, card 4 number, card 3 number, card 2 number, card 1 number]
+    # expecting the numbers would be sorted (i.e. the cards are sequenced)
+    # checking for the pair
+    swap dup
+    # => [card 4 number, card 4 number, card 5 number, card 3 number, card 2 number, card 1 number, card 1 number]
+    exec.store_verify_one_pair_hand_data
+    # => [card 4 number, card 5 number, card 3 number, card 2 number, card 1 number, card 1 number]
+    eq
+
 end 
 
 proc.verify_two_pair_hand
