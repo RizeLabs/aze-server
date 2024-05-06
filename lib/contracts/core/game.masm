@@ -29,6 +29,31 @@ const.BALANCE_UPDATED=173 # check slot (173 - 100)
 const.PLAYER_ACTION=174 # check slot (174 - 100)
 const.GAME_ENDED=175 # check slot (175 - 100)
 
+# game hand enums 
+const.ROYAL_FLUSH=1
+const.STRAIGHT_FLUSH=2
+const.FOUR_OF_A_KIND=3
+const.FULL_HOUSE=4
+const.FLUSH=5
+const.STRAIGHT=6
+const.THREE_OF_A_KIND=7
+const.TWO_PAIR=8
+const.ONE_PAIR=9
+const.HIGH_CARD=10
+
+# game hand points 
+const.ROYAL_FLUSH_POINTS=10
+const.STRAIGHT_FLUSH_POINTS=9
+const.FOUR_OF_A_KIND_POINTS=8
+const.FULL_HOUSE_POINTS=7
+const.FLUSH_POINTS=6
+const.STRAIGHT_POINTS=5
+const.THREE_OF_A_KIND_POINTS=4
+const.TWO_PAIR_POINTS=3
+const.ONE_PAIR_POINTS=2
+const.HIGH_CARD_POINTS=1
+
+
 # enable authentication for players (although accounts are custodial for now)
 export.poker_auth_tx_rpo_falcon512
     # Get commitments to created notes
@@ -121,6 +146,366 @@ proc.load_current_player_index.1
     loc_load.0
 end 
 
+# hand verification procedures 
+proc.verify_high_card_hand
+end 
+
+proc.verify_one_pair_hand
+end 
+
+proc.verify_two_pair_hand
+end
+
+proc.verify_three_of_a_kind_hand
+end
+
+proc.verify_straight_hand
+end
+
+proc.verify_flush_hand
+end
+
+proc.verify_full_house_hand
+end
+
+proc.verify_four_of_a_kind_hand
+end
+
+proc.verify_straight_flush_hand
+end
+
+proc.verify_royal_flush_hand
+end
+
+proc.verify_hand_and_allot_points
+    
+    dup 
+    push.HIGH_CARD eq 
+    if.true 
+        drop drop # first droping 1/0 and then droping the hand type
+        # => [player card 1 index, player card 2 index , comm card 1 slot index, comm card 2 slot index, comm card 3 slot index]
+        # allot points to the for high card 
+        exec.load_current_player_index
+        # => [player index, player card 1 index, player card 2 index , comm card 1 slot index, comm card 2 slot index, comm card 3 slot index]
+        exec.verify_high_card_hand
+
+        # TODO! handle the 0 case here when the user claim is invalid        
+        # => [1/0] based on the user claim for now we are assuming it would always be 1
+        if.true
+            drop
+            exec.load_current_player_index
+            # => [player index (relative index)]
+            push.64 swap # constant slots 
+            # => [player index, 64]
+            push.1 swap sub push.13 mul 
+            # => [(player index - 1) * 13]
+            exec.load_current_player_index
+            swap add 
+            # => [((player index - 1) * 13) + player index]
+            push.HIGH_CARD_POINTS swap
+            # => [((player index - 1) * 13) + player index, HIGH_CARD_POINTS]
+            exec.account::set_item
+        end 
+
+    else
+        drop # droping the 1/0
+    end
+
+    # => [hand type, player card 1 index, player card 2 index , comm card 1 slot index, comm card 2 slot index, comm card 3 slot index]
+    dup 
+    # => [hand type, hand type, plaer card 1 index, player card 2 index , comm card 1 slot index, comm card 2 slot index, comm card 3 slot index]
+
+    push.ONE_PAIR eq
+
+    if.true 
+        drop drop # first droping 1/0 and then droping the hand type
+        # => [player card 1 index, player card 2 index , comm card 1 slot index, comm card 2 slot index, comm card 3 slot index]
+        # allot points to the for high card 
+        exec.load_current_player_index
+        # => [player index, player card 1 index, player card 2 index , comm card 1 slot index, comm card 2 slot index, comm card 3 slot index]
+        exec.verify_high_card_hand
+
+        # TODO! handle the 0 case here when the user claim is invalid        
+        # => [1/0] based on the user claim for now we are assuming it would always be 1
+        if.true
+            drop
+            exec.load_current_player_index
+            # => [player index (relative index)]
+            push.64 swap # constant slots 
+            # => [player index, 64]
+            push.1 swap sub push.13 mul 
+            # => [(player index - 1) * 13]
+            exec.load_current_player_index
+            swap add 
+            # => [((player index - 1) * 13) + player index]
+            push.ONE_PAIR_POINTS swap
+            # => [((player index - 1) * 13) + player index, HIGH_CARD_POINTS]
+            exec.account::set_item
+        end 
+
+    else
+        drop # droping the 1/0
+    end
+
+    dup 
+    push.TWO_PAIR eq 
+    if.true 
+        drop drop # first droping 1/0 and then droping the hand type
+        # => [player card 1 index, player card 2 index , comm card 1 slot index, comm card 2 slot index, comm card 3 slot index]
+        # allot points to the for high card 
+        exec.load_current_player_index
+        # => [player index, player card 1 index, player card 2 index , comm card 1 slot index, comm card 2 slot index, comm card 3 slot index]
+        exec.verify_high_card_hand
+
+        # TODO! handle the 0 case here when the user claim is invalid        
+        # => [1/0] based on the user claim for now we are assuming it would always be 1
+        if.true
+            drop
+            exec.load_current_player_index
+            # => [player index (relative index)]
+            push.64 swap # constant slots 
+            # => [player index, 64]
+            push.1 swap sub push.13 mul 
+            # => [(player index - 1) * 13]
+            exec.load_current_player_index
+            swap add 
+            # => [((player index - 1) * 13) + player index]
+            push.TWO_PAIR_POINTS swap
+            # => [((player index - 1) * 13) + player index, TWO_PAIR_POINTS]
+            exec.account::set_item
+        end 
+
+    else
+        drop # droping the 1/0
+    end
+
+    dup 
+    push.THREE_OF_A_KIND eq 
+    if.true 
+        drop drop # first droping 1/0 and then droping the hand type
+        # => [player card 1 index, player card 2 index , comm card 1 slot index, comm card 2 slot index, comm card 3 slot index]
+        # allot points to the for high card 
+        exec.load_current_player_index
+        # => [player index, player card 1 index, player card 2 index , comm card 1 slot index, comm card 2 slot index, comm card 3 slot index]
+        exec.verify_high_card_hand
+
+        # TODO! handle the 0 case here when the user claim is invalid        
+        # => [1/0] based on the user claim for now we are assuming it would always be 1
+        if.true
+            drop
+            exec.load_current_player_index
+            # => [player index (relative index)]
+            push.64 swap # constant slots 
+            # => [player index, 64]
+            push.1 swap sub push.13 mul 
+            # => [(player index - 1) * 13]
+            exec.load_current_player_index
+            swap add 
+            # => [((player index - 1) * 13) + player index]
+            push.THREE_OF_A_KIND_POINTS swap
+            # => [((player index - 1) * 13) + player index, THREE_OF_A_KIND_POINTS]
+            exec.account::set_item
+        end 
+
+    else
+        drop # droping the 1/0
+    end
+
+    dup 
+    push.STRAIGHT eq 
+    if.true 
+        drop drop # first droping 1/0 and then droping the hand type
+        # => [player card 1 index, player card 2 index , comm card 1 slot index, comm card 2 slot index, comm card 3 slot index]
+        # allot points to the for high card 
+        exec.load_current_player_index
+        # => [player index, player card 1 index, player card 2 index , comm card 1 slot index, comm card 2 slot index, comm card 3 slot index]
+        exec.verify_high_card_hand
+
+        # TODO! handle the 0 case here when the user claim is invalid        
+        # => [1/0] based on the user claim for now we are assuming it would always be 1
+        if.true
+            drop
+            exec.load_current_player_index
+            # => [player index (relative index)]
+            push.64 swap # constant slots 
+            # => [player index, 64]
+            push.1 swap sub push.13 mul 
+            # => [(player index - 1) * 13]
+            exec.load_current_player_index
+            swap add 
+            # => [((player index - 1) * 13) + player index]
+            push.STRAIGHT_POINTS swap
+            # => [((player index - 1) * 13) + player index, STRAIGHT_POINTS]
+            exec.account::set_item
+        end 
+
+    else
+        drop # droping the 1/0
+    end
+
+    dup 
+    push.FLUSH eq 
+    if.true 
+        drop drop # first droping 1/0 and then droping the hand type
+        # => [player card 1 index, player card 2 index , comm card 1 slot index, comm card 2 slot index, comm card 3 slot index]
+        # allot points to the for high card 
+        exec.load_current_player_index
+        # => [player index, player card 1 index, player card 2 index , comm card 1 slot index, comm card 2 slot index, comm card 3 slot index]
+        exec.verify_high_card_hand
+
+        # TODO! handle the 0 case here when the user claim is invalid        
+        # => [1/0] based on the user claim for now we are assuming it would always be 1
+        if.true
+            drop
+            exec.load_current_player_index
+            # => [player index (relative index)]
+            push.64 swap # constant slots 
+            # => [player index, 64]
+            push.1 swap sub push.13 mul 
+            # => [(player index - 1) * 13]
+            exec.load_current_player_index
+            swap add 
+            # => [((player index - 1) * 13) + player index]
+            push.FLUSH_POINTS swap
+            # => [((player index - 1) * 13) + player index, FLUSH_POINTS]
+            exec.account::set_item
+        end 
+
+    else
+        drop # droping the 1/0
+    end
+
+    dup 
+    push.FULL_HOUSE eq 
+    if.true 
+        drop drop # first droping 1/0 and then droping the hand type
+        # => [player card 1 index, player card 2 index , comm card 1 slot index, comm card 2 slot index, comm card 3 slot index]
+        # allot points to the for high card 
+        exec.load_current_player_index
+        # => [player index, player card 1 index, player card 2 index , comm card 1 slot index, comm card 2 slot index, comm card 3 slot index]
+        exec.verify_high_card_hand
+
+        # TODO! handle the 0 case here when the user claim is invalid        
+        # => [1/0] based on the user claim for now we are assuming it would always be 1
+        if.true
+            drop
+            exec.load_current_player_index
+            # => [player index (relative index)]
+            push.64 swap # constant slots 
+            # => [player index, 64]
+            push.1 swap sub push.13 mul 
+            # => [(player index - 1) * 13]
+            exec.load_current_player_index
+            swap add 
+            # => [((player index - 1) * 13) + player index]
+            push.FULL_HOUSE_POINTS swap
+            # => [((player index - 1) * 13) + player index, FULL_HOUSE_POINTS]
+            exec.account::set_item
+        end 
+
+    else
+        drop # droping the 1/0
+    end
+
+    dup 
+    push.FOUR_OF_A_KIND eq 
+    if.true 
+        drop drop # first droping 1/0 and then droping the hand type
+        # => [player card 1 index, player card 2 index , comm card 1 slot index, comm card 2 slot index, comm card 3 slot index]
+        # allot points to the for high card 
+        exec.load_current_player_index
+        # => [player index, player card 1 index, player card 2 index , comm card 1 slot index, comm card 2 slot index, comm card 3 slot index]
+        exec.verify_high_card_hand
+
+        # TODO! handle the 0 case here when the user claim is invalid        
+        # => [1/0] based on the user claim for now we are assuming it would always be 1
+        if.true
+            drop
+            exec.load_current_player_index
+            # => [player index (relative index)]
+            push.64 swap # constant slots 
+            # => [player index, 64]
+            push.1 swap sub push.13 mul 
+            # => [(player index - 1) * 13]
+            exec.load_current_player_index
+            swap add 
+            # => [((player index - 1) * 13) + player index]
+            push.FOUR_OF_A_KIND_POINTS swap
+            # => [((player index - 1) * 13) + player index, FOUR_OF_A_KIND_POINTS]
+            exec.account::set_item
+        end 
+
+    else
+        drop # droping the 1/0
+    end
+
+    dup 
+    push.STRAIGHT_FLUSH eq 
+    if.true 
+        drop drop # first droping 1/0 and then droping the hand type
+        # => [player card 1 index, player card 2 index , comm card 1 slot index, comm card 2 slot index, comm card 3 slot index]
+        # allot points to the for high card 
+        exec.load_current_player_index
+        # => [player index, player card 1 index, player card 2 index , comm card 1 slot index, comm card 2 slot index, comm card 3 slot index]
+        exec.verify_high_card_hand
+
+        # TODO! handle the 0 case here when the user claim is invalid        
+        # => [1/0] based on the user claim for now we are assuming it would always be 1
+        if.true
+            drop
+            exec.load_current_player_index
+            # => [player index (relative index)]
+            push.64 swap # constant slots 
+            # => [player index, 64]
+            push.1 swap sub push.13 mul 
+            # => [(player index - 1) * 13]
+            exec.load_current_player_index
+            swap add 
+            # => [((player index - 1) * 13) + player index]
+            push.STRAIGHT_FLUSH_POINTS swap
+            # => [((player index - 1) * 13) + player index, STRAIGHT_FLUSH_POINTS]
+            exec.account::set_item
+        end 
+
+    else
+        drop # droping the 1/0
+    end
+
+    dup 
+    push.ROYAL_FLUSH eq 
+    if.true 
+        drop drop # first droping 1/0 and then droping the hand type
+        # => [player card 1 index, player card 2 index , comm card 1 slot index, comm card 2 slot index, comm card 3 slot index]
+        # allot points to the for high card 
+        exec.load_current_player_index
+        # => [player index, player card 1 index, player card 2 index , comm card 1 slot index, comm card 2 slot index, comm card 3 slot index]
+        exec.verify_high_card_hand
+
+        # TODO! handle the 0 case here when the user claim is invalid        
+        # => [1/0] based on the user claim for now we are assuming it would always be 1
+        if.true
+            drop
+            exec.load_current_player_index
+            # => [player index (relative index)]
+            push.64 swap # constant slots 
+            # => [player index, 64]
+            push.1 swap sub push.13 mul 
+            # => [(player index - 1) * 13]
+            exec.load_current_player_index
+            swap add 
+            # => [((player index - 1) * 13) + player index]
+            push.ROYAL_FLUSH_POINTS swap
+            # => [((player index - 1) * 13) + player index, ROYAL_FLUSH_POINTS]
+            exec.account::set_item
+        end 
+
+    else
+        drop # droping the 1/0
+    end
+
+end 
+
+
 # Description: This procedure should be called at the end of the game it expects the user hand and the community cards
 # it will return the order of the hand
 # this method expects player index whose cards need to be evaluated 
@@ -131,14 +516,30 @@ end
 export.allot_points
     exec.load_current_player_index
     # => [player index]
+    # => check this logic again please ??
     push.11 mul 
     # => [player index * 2]
-    push.64 add 
-    # => [player index *  + 64] This would be the index of the slot where player hand exist 
+    push.65 add dup 
+    
+    # => [player index * 2 + 64] This would be the index of the slot where player hand exist once the player has submitted their cards at the end of the game
+    # => [player index * 2 + 65] This would be the index of the slot where the sequence of slot of player hand exist which finally makes the intended player hand
     # TODO: it should not be empty means player hasn't submitted their hand 
-    # => exec.account::get_item 
-    # => [hand type, comm card 1 index, comm card 2 index, comm card 3 index ]
-    # => asumming here we implemented hand checking logic 
+    
+    exec.account::get_item 
+    # => [comm card 1 slot index, comm card 2 slot index, comm card 3 slot index, player index * 2 + 65]
+    # => asumming here we implemented hand checking logic
+
+    movup.4
+    # => [player index * 2 + 65, comm card 1 slot index, comm card 2 slot index, comm card 3 slot index]
+    push.1 swap sub 
+    # => [player index * 2 + 64, comm card 1 slot index, comm card 2 slot index, comm card 3 slot index, 1] 
+    exec.account::get_item
+    # => [hand type, player card 1 index, player card 2 index , comm card 1 slot index, comm card 2 slot index, comm card 3 slot index]
+
+    exec.verify_hand_and_allot_points
+
+
+    # at the end the stack should look like this only
     # => [player index] at the end the stack should contain the player index on the top and nothing else 
 end 
 
