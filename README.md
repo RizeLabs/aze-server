@@ -7,7 +7,7 @@
 - run the server `cargo run --release`
 
 ### Run test
-- `cargo test --release --test=integration`
+- `cargo test --release --test=integration -- --test-threads 1`
 
 ### Endpoints
 - `/v1/game/create-account`: This endpoint will orchestrate the local store with some player accounts and game account. And will deal the card among from game account to player account
