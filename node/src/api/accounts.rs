@@ -1,4 +1,4 @@
-use aze_lib::accounts::{ create_basic_aze_game_account, create_basic_aze_player_account };
+use aze_lib::accounts::create_basic_aze_player_account;
 use aze_lib::client::{
     self,
     create_aze_client,
@@ -11,61 +11,27 @@ use aze_lib::client::{
 use aze_lib::constants::BUY_IN_AMOUNT;
 use aze_lib::notes::{ consume_notes, mint_note };
 use aze_lib::executor::execute_tx_and_sync;
+use aze_lib::storage::GameStorageSlotData;
+
 use aze_types::accounts::{
     AccountCreationError,
     AccountCreationResponse,
     PlayerAccountCreationResponse,
 };
-use aze_lib::notes::create_send_card_note;
-use miden_lib::{ transaction, AuthScheme };
+use aze_lib::utils::log_account_status;
+use miden_lib::AuthScheme;
 use miden_objects::{
     assets::TokenSymbol,
-    accounts::{ Account, AccountId, AccountStorage, StorageSlotType },
-    assembly::ProgramAst,
-    assets::{ Asset, AssetVault, FungibleAsset },
+    assets::{ Asset, FungibleAsset },
     crypto::dsa::rpo_falcon512::{ PublicKey, SecretKey },
-    transaction::TransactionArgs,
-    Felt,
-    Word,
-    ONE,
-    ZERO,
-    notes::{
-        Note,
-        NoteAssets,
-        NoteExecutionMode,
-        NoteId,
-        NoteInputs,
-        NoteMetadata,
-        NoteRecipient,
-        NoteScript,
-        NoteTag,
-        NoteType,
-    },
-    transaction::InputNote,
+    notes::NoteType,
 };
-use miden_client::{
-    client::{
-        accounts::{ AccountTemplate, AccountStorageMode },
-        transactions::transaction_request::{
-            PaymentTransactionData,
-            TransactionRequest,
-            TransactionTemplate,
-        },
-    },
-    store::NoteFilter,
+use miden_client::client::{
+    accounts::{ AccountTemplate, AccountStorageMode },
+    transactions::transaction_request::TransactionTemplate,
 };
 
-use actix_web::{
-    error::ResponseError,
-    get,
-    http::{ header::ContentType, StatusCode },
-    post,
-    put,
-    web::Data,
-    web::Json,
-    web::Path,
-    HttpResponse,
-};
+use actix_web::{ get, web::Json };
 
 // TODO: pass account id of the players as request object in this game
 #[get("/v1/game/create-account")]
@@ -74,13 +40,17 @@ pub async fn create_aze_game_account() -> Result<
     AccountCreationError
 > {
     let mut client: AzeClient = create_aze_client();
+    let slot_data = GameStorageSlotData::new(0, 0, 0, 0, 0, 0);
 
     // TODO: creating player just for testing purposes
     let (player_account, _) = client
-        .new_game_account(AzeAccountTemplate::PlayerAccount {
-            mutable_code: false,
-            storage_mode: AccountStorageMode::Local, // for now
-        })
+        .new_game_account(
+            AzeAccountTemplate::PlayerAccount {
+                mutable_code: false,
+                storage_mode: AccountStorageMode::Local, // for now
+            },
+            None
+        )
         .unwrap();
 
     let (faucet_account, _) = client
@@ -99,10 +69,13 @@ pub async fn create_aze_game_account() -> Result<
     let player_account_ids = vec![player_account.id()];
 
     let (game_account, _) = client
-        .new_game_account(AzeAccountTemplate::GameAccount {
-            mutable_code: false,
-            storage_mode: AccountStorageMode::Local, // for now
-        })
+        .new_game_account(
+            AzeAccountTemplate::GameAccount {
+                mutable_code: false,
+                storage_mode: AccountStorageMode::Local, // for now
+            },
+            Some(slot_data)
+        )
         .unwrap();
 
     let game_account_id = game_account.id();
@@ -132,7 +105,7 @@ pub async fn create_aze_game_account() -> Result<
         let target_account_id = player_account_ids[i];
         println!("Target account id {:?}", target_account_id);
 
-        print_account_status(&client, target_account_id).await;
+        log_account_status(&client, target_account_id).await;
 
         let input_cards = [cards[i], cards[i + 1]];
         let sendcard_txn_data = SendCardTransactionData::new(
@@ -155,7 +128,7 @@ pub async fn create_aze_game_account() -> Result<
         execute_tx_and_sync(&mut client, tx_request).await;
 
         println!("Executed and synced with node");
-        print_account_status(&client, target_account_id).await;
+        log_account_status(&client, target_account_id).await;
     }
 
     // TODO: define appropriate response types
@@ -191,12 +164,4 @@ pub async fn create_aze_player_account() -> Result<
             account_id: game_account.id().into(),
         })
     )
-}
-
-async fn print_account_status(client: &AzeClient, account_id: AccountId) {
-    let (regular_account, _seed) = client.get_account(account_id).unwrap();
-    println!("Account asset count --> {:?}", regular_account.vault().assets().count());
-    println!("Account storage root --> {:?}", regular_account.storage().root());
-    println!("Account slot 100 --> {:?}", regular_account.storage().get_item(100));
-    println!("Account slot 101 --> {:?}", regular_account.storage().get_item(101));
 }
