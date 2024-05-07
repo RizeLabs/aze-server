@@ -14,7 +14,7 @@ const.RAISER_INDEX=58
 const.CURRENT_PLAYER_PUB_KEY_INDEX=60 # at 63 we stored pub key for current player (it will contain)
 const.HIGHEST_BET_SLOT_INDEX=61 # highest bet amount which player will try to match with call
 const.CURRENT_TURN_INDEX=60 # index of the player whose turn it is currently
-const.CURRENT_TURN_PLAYER_PUB_KEY_INDEX=62 # need to check it's storage initially small blind public key on slot 62
+const.CURRENT_TURN_PLAYER_PUB_KEY_INDEX=60 # need to check it's storage initially small blind public key on slot 62
 const.CURRENT_PHASE=62 # whole game is divided into 4 phases
 
 # game events 
@@ -72,36 +72,45 @@ export.play_call
     # TODO: checks the player has enough amount for matching bet
     # TODO: checks the first player can't go for check  
 
-    # loaded current player index 
     push.CURRENT_TURN_PLAYER_PUB_KEY_INDEX exec.account::get_item
     # => [0, 0, 0, pub key index of current player]
     
     # dropping three zeroes 
-    drop drop drop
+    drop drop drop dup
+    # => [pub key index of current player, pub key index of current player]
 
-    # => [pub key index of current player]
     push.2 add exec.account::get_item
-    # => [0, 0, 0, player last bet]
+    # => [0, 0, 0, player last bet, pub key index of current player]
     drop drop drop
-    # => [player last bet]
+    # => [player last bet, pub key index of current player]
+
     # when user wants to just call and match the bet
     push.HIGHEST_BET_SLOT_INDEX exec.account::get_item 
-    # => [0, 0, 0, highest bet, player last bet] since we are currently storing everything in word 
+    # => [0, 0, 0, highest bet, player last bet, pub key index of current player] 
+
     drop drop drop
-    # => [0, 0, 0, highest bet, current bet]
-    drop drop drop
-    sub 
-    # => [highest bet - current bet] subtract this amount from player balance 
-    # => [difference]
-    push.CURRENT_TURN_PLAYER_PUB_KEY_INDEX
+    # => [highest bet, current bet, pub key index of current player]
+
+    swap sub 
+    # => [highest bet - current bet, pub key index of current player] subtract this amount from player balance 
+    # => [difference, pub key index of current player]
+
+    swap dup movup.2 swap
+    # => [current player pub key index, difference, current player pub key index]
     push.3 add exec.account::get_item
     drop drop drop
-    # => [balance, difference]
-    sub
-    # => [balance - difference]
-    push.CURRENT_TURN_PLAYER_PUB_KEY_INDEX.3
+    # => [balance, difference, current player pub key index]
+
+    swap sub
+    # => [balance - difference, current player pub key index]
+    swap padw drop movup.3
+    # => [current player pub key index, 0, 0, 0, remaining balance]
+    push.3 add 
+    # => [current player pub key index + 3, 0, 0, 0, remaining balance]
+
     # => updated player balance 
     exec.account::set_item 
+    dropw dropw
 
     # TODO: need to add procedure for updating player turns
 end

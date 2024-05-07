@@ -1,0 +1,75 @@
+use.miden::account
+use.miden::note
+use.miden::contracts::wallets::basic->wallet
+use.miden::contracts::poker::poker
+
+const.PLAYER_1_PUB_KEY_INDEX=65 # use this index to find other player pub key slot index which would always be second to the player account id
+const.SMALL_BLIND_INDEX=54
+const.BIG_BLIND_INDEX=55
+const.BUY_IN_INDEX=56
+const.NO_OF_PLAYERS_INDEX=57
+const.RAISER_INDEX=58
+const.CURRENT_PLAYER_PUB_KEY_INDEX=60 # at 63 we stored pub key for current player (it will contain)
+const.HIGHEST_BET_SLOT_INDEX=61 # highest bet amount which player will try to match with call
+const.CURRENT_TURN_PLAYER_PUB_KEY_INDEX=60
+
+proc.play_call
+
+    push.CURRENT_TURN_PLAYER_PUB_KEY_INDEX exec.account::get_item
+    # => [0, 0, 0, pub key index of current player]
+    
+    # dropping three zeroes 
+    drop drop drop dup
+    # => [pub key index of current player, pub key index of current player]
+
+    push.2 add exec.account::get_item
+    # => [0, 0, 0, player last bet, pub key index of current player]
+    drop drop drop
+    # => [player last bet, pub key index of current player]
+
+    # when user wants to just call and match the bet
+    push.HIGHEST_BET_SLOT_INDEX exec.account::get_item 
+    # => [0, 0, 0, highest bet, player last bet, pub key index of current player] 
+
+    drop drop drop
+    # => [highest bet, current bet, pub key index of current player]
+
+    swap sub 
+    # => [highest bet - current bet, pub key index of current player] subtract this amount from player balance 
+    # => [difference, pub key index of current player]
+
+    swap dup movup.2 swap
+    # => [current player pub key index, difference, current player pub key index]
+    push.3 add exec.account::get_item
+    drop drop drop
+    # => [balance, difference, current player pub key index]
+
+    swap sub
+    # => [balance - difference, current player pub key index]
+    swap padw drop movup.3
+    # => [current player pub key index, 0, 0, 0, remaining balance]
+    push.3 add 
+    # => [current player pub key index + 3, 0, 0, 0, remaining balance]
+
+    # => updated player balance 
+    exec.account::set_item 
+    dropw dropw
+end
+
+
+begin   
+    dropw
+
+    call.play_call
+    # => [...]
+
+    dropw
+    exec.note::get_assets drop mem_loadw
+    # => [ASSET, ...]
+
+    # load the asset and add it to the account
+    call.wallet::receive_asset
+    # => [...]
+
+    dropw
+end
