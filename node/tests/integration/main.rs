@@ -7,7 +7,7 @@ use aze_lib::client::{
     PlayRaiseTransactionData,
     PlayCallTransactionData,
 };
-use aze_lib::constants::BUY_IN_AMOUNT;
+use aze_lib::constants::{ BUY_IN_AMOUNT, PLAYER_BALANCE_SLOT };
 use aze_lib::executor::execute_tx_and_sync;
 use aze_lib::utils::{ get_random_coin, load_config };
 use aze_lib::notes::{ consume_notes, mint_note };
@@ -582,11 +582,10 @@ async fn assert_slot_status_call(
     let game_account_storage = account.storage();
 
     let remaining_balance = slot_data.player_balance() - slot_data.highest_bet();
-    let slot_index = 68;
 
     // check player balance
     assert_eq!(
-        game_account_storage.get_item(slot_index),
+        game_account_storage.get_item(PLAYER_BALANCE_SLOT),
         RpoDigest::new([Felt::from(remaining_balance), Felt::ZERO, Felt::ZERO, Felt::ZERO])
     );
 }

@@ -1,4 +1,5 @@
-pub const DEFAULT_AUTH_SCRIPT: &str = "
+pub const DEFAULT_AUTH_SCRIPT: &str =
+    "
     use.miden::contracts::auth::basic->auth_tx
 
     begin
@@ -9,3 +10,4 @@ pub const DEFAULT_AUTH_SCRIPT: &str = "
 pub const CLIENT_CONFIG_FILE_NAME: &str = "miden-client.toml";
 pub const BUY_IN_AMOUNT: u64 = 1000;
 pub const TRANSFER_AMOUNT: u64 = 59;
+pub const PLAYER_BALANCE_SLOT: u8 = 68;
