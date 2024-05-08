@@ -7,7 +7,16 @@ use aze_lib::client::{
     PlayRaiseTransactionData,
     PlayCallTransactionData,
 };
-use aze_lib::constants::{ BUY_IN_AMOUNT, PLAYER_BALANCE_SLOT };
+use aze_lib::constants::{
+    BUY_IN_AMOUNT,
+    SMALL_BLIND_AMOUNT,
+    NO_OF_PLAYERS,
+    FLOP_INDEX,
+    CURRENT_TURN_INDEX,
+    HIGHEST_BET,
+    PLAYER_INITIAL_BALANCE,
+    PLAYER_BALANCE_SLOT,
+};
 use aze_lib::executor::execute_tx_and_sync;
 use aze_lib::utils::{ get_random_coin, load_config };
 use aze_lib::notes::{ consume_notes, mint_note };
@@ -79,21 +88,13 @@ async fn wait_for_node(client: &mut AzeClient) {
 async fn test_create_aze_game_account() {
     let mut client = create_test_client();
 
-    // TODO: remove this constants from here
-    let small_blind_amt = 5u8;
-    let buy_in_amt = 100u8;
-    let no_of_players = 4u8;
-    let flop_index = no_of_players * 2 + 1;
-    let current_turn_index = 65u8;
-    let player_balance = 10u8;
-
     let slot_data = GameStorageSlotData::new(
-        small_blind_amt,
-        buy_in_amt,
-        no_of_players,
-        current_turn_index,
-        small_blind_amt,
-        player_balance
+        SMALL_BLIND_AMOUNT,
+        BUY_IN_AMOUNT as u8,
+        NO_OF_PLAYERS,
+        CURRENT_TURN_INDEX,
+        HIGHEST_BET,
+        PLAYER_INITIAL_BALANCE
     );
 
     // TODO: somehow manage the game seed as well
@@ -129,7 +130,7 @@ async fn test_create_aze_game_account() {
     // checking next turn
     assert_eq!(
         game_account_storage.get_item(slot_index),
-        RpoDigest::new([Felt::from(flop_index as u8), Felt::ZERO, Felt::ZERO, Felt::ZERO])
+        RpoDigest::new([Felt::from(FLOP_INDEX), Felt::ZERO, Felt::ZERO, Felt::ZERO])
     );
 
     slot_index = slot_index + 1;
@@ -137,7 +138,7 @@ async fn test_create_aze_game_account() {
     // checking the small blind amount
     assert_eq!(
         game_account_storage.get_item(slot_index),
-        RpoDigest::new([Felt::from(small_blind_amt), Felt::ZERO, Felt::ZERO, Felt::ZERO])
+        RpoDigest::new([Felt::from(SMALL_BLIND_AMOUNT), Felt::ZERO, Felt::ZERO, Felt::ZERO])
     );
 
     slot_index = slot_index + 1;
@@ -145,7 +146,7 @@ async fn test_create_aze_game_account() {
     // checking the big blind amount
     assert_eq!(
         game_account_storage.get_item(slot_index),
-        RpoDigest::new([Felt::from(small_blind_amt * 2), Felt::ZERO, Felt::ZERO, Felt::ZERO])
+        RpoDigest::new([Felt::from(SMALL_BLIND_AMOUNT * 2), Felt::ZERO, Felt::ZERO, Felt::ZERO])
     );
 
     slot_index = slot_index + 1;
@@ -153,14 +154,14 @@ async fn test_create_aze_game_account() {
     // checking the buy in amount
     assert_eq!(
         game_account_storage.get_item(slot_index),
-        RpoDigest::new([Felt::from(buy_in_amt), Felt::ZERO, Felt::ZERO, Felt::ZERO])
+        RpoDigest::new([Felt::from(BUY_IN_AMOUNT as u8), Felt::ZERO, Felt::ZERO, Felt::ZERO])
     );
 
     slot_index = slot_index + 1;
     // checking no of player slot
     assert_eq!(
         game_account_storage.get_item(slot_index),
-        RpoDigest::new([Felt::from(no_of_players), Felt::ZERO, Felt::ZERO, Felt::ZERO])
+        RpoDigest::new([Felt::from(NO_OF_PLAYERS), Felt::ZERO, Felt::ZERO, Felt::ZERO])
     );
 
     slot_index = slot_index + 1;
@@ -271,20 +272,13 @@ async fn test_cards_distribution() {
 async fn test_play_raise() {
     let mut client: AzeClient = create_test_client();
 
-    let small_blind_amt = 5u8;
-    let buy_in_amt = 100u8;
-    let no_of_players = 4u8;
-    let flop_index = no_of_players * 2 + 1;
-    let current_turn_index = 65u8;
-    let player_balance = 10u8;
-
     let game_slot_data = GameStorageSlotData::new(
-        small_blind_amt,
-        buy_in_amt,
-        no_of_players,
-        current_turn_index,
-        small_blind_amt,
-        player_balance
+        SMALL_BLIND_AMOUNT,
+        BUY_IN_AMOUNT as u8,
+        NO_OF_PLAYERS,
+        CURRENT_TURN_INDEX,
+        HIGHEST_BET,
+        PLAYER_INITIAL_BALANCE
     );
 
     let (game_account, _) = client
@@ -326,7 +320,7 @@ async fn test_play_raise() {
 
     fund_account(&mut client, sender_account_id, faucet_account_id).await;
 
-    let player_bet = small_blind_amt;
+    let player_bet = SMALL_BLIND_AMOUNT;
 
     let playraise_txn_data = PlayRaiseTransactionData::new(
         Asset::Fungible(fungible_asset),
@@ -353,21 +347,13 @@ async fn test_play_raise() {
 async fn test_play_call() {
     let mut client: AzeClient = create_test_client();
 
-    let small_blind_amt = 5u8;
-    let buy_in_amt = 100u8;
-    let no_of_players = 4u8;
-    let flop_index = no_of_players * 2 + 1;
-    let current_turn_index = 65u8;
-    let player_balance = 10u8;
-    let highest_bet = small_blind_amt;
-
     let game_slot_data = GameStorageSlotData::new(
-        small_blind_amt,
-        buy_in_amt,
-        no_of_players,
-        current_turn_index,
-        highest_bet,
-        player_balance
+        SMALL_BLIND_AMOUNT,
+        BUY_IN_AMOUNT as u8,
+        NO_OF_PLAYERS,
+        CURRENT_TURN_INDEX,
+        HIGHEST_BET,
+        PLAYER_INITIAL_BALANCE
     );
 
     let (game_account, _) = client
@@ -493,7 +479,6 @@ async fn assert_slot_status_raise(
     );
 
     slot_index = slot_index + 1;
-
     // checking the small blind amount
     assert_eq!(
         game_account_storage.get_item(slot_index),
@@ -501,7 +486,6 @@ async fn assert_slot_status_raise(
     );
 
     slot_index = slot_index + 1;
-
     // checking the big blind amount
     assert_eq!(
         game_account_storage.get_item(slot_index),
@@ -509,7 +493,6 @@ async fn assert_slot_status_raise(
     );
 
     slot_index = slot_index + 1;
-
     // checking the buy in amount
     assert_eq!(
         game_account_storage.get_item(slot_index),
@@ -554,9 +537,8 @@ async fn assert_slot_status_raise(
         RpoDigest::new([Felt::from(slot_data.highest_bet()), Felt::ZERO, Felt::ZERO, Felt::ZERO])
     );
 
+    let player_bet = SMALL_BLIND_AMOUNT;
     slot_index = slot_index + 6;
-    let player_bet = small_blind_amt;
-
     // check player bet
     assert_eq!(
         game_account_storage.get_item(slot_index),
@@ -564,7 +546,6 @@ async fn assert_slot_status_raise(
     );
 
     let remaining_balance = slot_data.player_balance() - player_bet;
-
     slot_index = slot_index + 1;
     // check player balance
     assert_eq!(
