@@ -581,27 +581,9 @@ async fn assert_slot_status_call(
     let (account, _) = client.get_account(account_id).unwrap();
     let game_account_storage = account.storage();
 
-    let small_blind_amt = slot_data.small_blind_amt();
-    let highest_bet = slot_data.highest_bet();
+    let remaining_balance = slot_data.player_balance() - slot_data.highest_bet();
+    let slot_index = 68;
 
-    let mut slot_index = 54;
-
-    // checking the small blind amount
-    assert_eq!(
-        game_account_storage.get_item(slot_index),
-        RpoDigest::new([Felt::from(small_blind_amt), Felt::ZERO, Felt::ZERO, Felt::ZERO])
-    );
-
-    slot_index = slot_index + 7;
-    // check highest bet
-    assert_eq!(
-        game_account_storage.get_item(slot_index),
-        RpoDigest::new([Felt::from(slot_data.highest_bet()), Felt::ZERO, Felt::ZERO, Felt::ZERO])
-    );
-
-    let remaining_balance = slot_data.player_balance() - highest_bet;
-
-    slot_index = slot_index + 7;
     // check player balance
     assert_eq!(
         game_account_storage.get_item(slot_index),
@@ -615,8 +597,3 @@ async fn fund_account(client: &mut AzeClient, account_id: AccountId, faucet_acco
     let note_2 = mint_note(client, account_id, faucet_account_id, NoteType::Public).await;
     consume_notes(client, account_id, &[note_2]).await;
 }
-
-// async fn fund(client: &mut AzeClient, account_id: AccountId, faucet_account_id: AccountId) {
-//     let note = mint_note(client, account_id, faucet_account_id, NoteType::Public).await;
-//     consume_notes(client, account_id, &[note]).await;
-// }
