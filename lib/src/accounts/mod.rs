@@ -173,10 +173,10 @@ fn construct_game_constructor_storage(
         ];
         player_pub_keys.extend(player_slots);
 
-        slot_index += 8; // since the mid 9 elements would cover the player stats and initially all those values are zero
+        slot_index += 13; // since the mid 9 elements would cover the player stats and initially all those values are zero
     }
 
-    // merghe player_id with card_suit
+    // merge player_id with card_suit
     game_info.push(auth_slot);
     game_info.extend(cards);
     game_info.extend(game_stats);
