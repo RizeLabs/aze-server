@@ -17,3 +17,4 @@ pub const CURRENT_TURN_INDEX: u8 = 65;
 pub const PLAYER_INITIAL_BALANCE: u8 = 10;
 pub const HIGHEST_BET: u8 = SMALL_BLIND_AMOUNT;
 pub const PLAYER_BALANCE_SLOT: u8 = 68;
+pub const CURRENT_TURN_INDEX_SLOT: u8 = 60;

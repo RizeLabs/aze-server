@@ -17,6 +17,7 @@ use aze_lib::constants::{
     HIGHEST_BET,
     PLAYER_INITIAL_BALANCE,
     PLAYER_BALANCE_SLOT,
+    CURRENT_TURN_INDEX_SLOT,
 };
 use aze_lib::executor::execute_tx_and_sync;
 use aze_lib::utils::{ get_random_coin, load_config };
@@ -37,7 +38,7 @@ use miden_crypto::FieldElement;
 use miden_objects::{
     Felt,
     assets::{ TokenSymbol, FungibleAsset, Asset },
-    accounts::AccountId,
+    accounts::{ Account, AccountId },
     notes::NoteType,
 };
 use std::{ env::temp_dir, time::Duration };
@@ -85,10 +86,9 @@ async fn wait_for_node(client: &mut AzeClient) {
     panic!("Unable to connect to node");
 }
 
-#[tokio::test]
-async fn test_create_aze_game_account() {
-    let mut client = create_test_client();
-
+fn setup_accounts(
+    client: &mut AzeClient
+) -> (Account, AccountId, AccountId, GameStorageSlotData) {
     let slot_data = GameStorageSlotData::new(
         SMALL_BLIND_AMOUNT,
         BUY_IN_AMOUNT as u8,
@@ -98,16 +98,44 @@ async fn test_create_aze_game_account() {
         PLAYER_INITIAL_BALANCE
     );
 
-    // TODO: somehow manage the game seed as well
     let (game_account, _) = client
         .new_game_account(
             AzeAccountTemplate::GameAccount {
                 mutable_code: false,
                 storage_mode: AccountStorageMode::Local,
             },
-            Some(slot_data)
+            Some(slot_data.clone())
         )
         .unwrap();
+
+    let (player_account, _) = client
+        .new_game_account(
+            AzeAccountTemplate::PlayerAccount {
+                mutable_code: false,
+                storage_mode: AccountStorageMode::Local,
+            },
+            None
+        )
+        .unwrap();
+
+    let (faucet_account, _) = client
+        .new_account(AccountTemplate::FungibleFaucet {
+            token_symbol: TokenSymbol::new("MATIC").unwrap(),
+            decimals: 8,
+            max_supply: 1_000_000_000,
+            storage_mode: AccountStorageMode::Local,
+        })
+        .unwrap();
+
+    return (game_account, player_account.id(), faucet_account.id(), slot_data);
+}
+
+#[tokio::test]
+async fn test_create_aze_game_account() {
+    let mut client = create_test_client();
+
+    // TODO: somehow manage the game seed as well
+    let (game_account, _, _, _) = setup_accounts(&mut client);
     let game_account_storage = game_account.storage();
 
     let mut slot_index = 1;
@@ -173,35 +201,16 @@ async fn test_create_aze_game_account() {
     );
 }
 
-// #[tokio::test]
+#[tokio::test]
 async fn test_cards_distribution() {
     let mut client: AzeClient = create_test_client();
 
     let slot_data = GameStorageSlotData::new(0, 0, 0, 0, 0, 0);
 
-    let (game_account, _) = client
-        .new_game_account(
-            AzeAccountTemplate::GameAccount {
-                mutable_code: false,
-                storage_mode: AccountStorageMode::Local,
-            },
-            Some(slot_data)
-        )
-        .unwrap();
+    let (game_account, player1_account_id, faucet_account_id, _) = setup_accounts(&mut client);
 
     let game_account_id = game_account.id();
     let game_account_storage = game_account.storage();
-
-    // TODO: for now we''ll distribute cards to two players
-    let (player1_account, _) = client
-        .new_game_account(
-            AzeAccountTemplate::PlayerAccount {
-                mutable_code: false,
-                storage_mode: AccountStorageMode::Local,
-            },
-            None
-        )
-        .unwrap();
 
     let (player2_account, _) = client
         .new_game_account(
@@ -213,22 +222,11 @@ async fn test_cards_distribution() {
         )
         .unwrap();
 
-    // setting up faucet account here
-    let (faucet_account, _) = client
-        .new_account(AccountTemplate::FungibleFaucet {
-            token_symbol: TokenSymbol::new("MATIC").unwrap(),
-            decimals: 8,
-            max_supply: 1_000_000_000,
-            storage_mode: AccountStorageMode::Local,
-        })
-        .unwrap();
-
-    let faucet_account_id = faucet_account.id();
     fund_account(&mut client, game_account_id, faucet_account_id).await;
 
     let fungible_asset = FungibleAsset::new(faucet_account_id, BUY_IN_AMOUNT).unwrap();
 
-    let player_account_ids = vec![player1_account.id(), player2_account.id()];
+    let player_account_ids = vec![player1_account_id, player2_account.id()];
 
     let mut cards: Vec<[Felt; 4]> = vec![];
 
@@ -269,54 +267,19 @@ async fn test_cards_distribution() {
     }
 }
 
-// #[tokio::test]
+#[tokio::test]
 async fn test_play_raise() {
     let mut client: AzeClient = create_test_client();
 
-    let game_slot_data = GameStorageSlotData::new(
-        SMALL_BLIND_AMOUNT,
-        BUY_IN_AMOUNT as u8,
-        NO_OF_PLAYERS,
-        CURRENT_TURN_INDEX,
-        HIGHEST_BET,
-        PLAYER_INITIAL_BALANCE
+    let (game_account, player_account_id, faucet_account_id, game_slot_data) = setup_accounts(
+        &mut client
     );
-
-    let (game_account, _) = client
-        .new_game_account(
-            AzeAccountTemplate::GameAccount {
-                mutable_code: false,
-                storage_mode: AccountStorageMode::Local,
-            },
-            Some(game_slot_data.clone())
-        )
-        .unwrap();
 
     let game_account_storage = game_account.storage();
 
-    let (player_account, _) = client
-        .new_game_account(
-            AzeAccountTemplate::PlayerAccount {
-                mutable_code: false,
-                storage_mode: AccountStorageMode::Local,
-            },
-            None
-        )
-        .unwrap();
-
-    let (faucet_account, _) = client
-        .new_account(AccountTemplate::FungibleFaucet {
-            token_symbol: TokenSymbol::new("MATIC").unwrap(),
-            decimals: 8,
-            max_supply: 1_000_000_000,
-            storage_mode: AccountStorageMode::Local,
-        })
-        .unwrap();
-
-    let faucet_account_id = faucet_account.id();
     let fungible_asset = FungibleAsset::new(faucet_account_id, BUY_IN_AMOUNT).unwrap();
 
-    let sender_account_id = player_account.id();
+    let sender_account_id = player_account_id;
     let target_account_id = game_account.id();
 
     fund_account(&mut client, sender_account_id, faucet_account_id).await;
@@ -344,54 +307,19 @@ async fn test_play_raise() {
     assert_slot_status_raise(&client, target_account_id, game_slot_data).await;
 }
 
-// #[tokio::test]
+#[tokio::test]
 async fn test_play_call() {
     let mut client: AzeClient = create_test_client();
 
-    let game_slot_data = GameStorageSlotData::new(
-        SMALL_BLIND_AMOUNT,
-        BUY_IN_AMOUNT as u8,
-        NO_OF_PLAYERS,
-        CURRENT_TURN_INDEX,
-        HIGHEST_BET,
-        PLAYER_INITIAL_BALANCE
+    let (game_account, player_account_id, faucet_account_id, game_slot_data) = setup_accounts(
+        &mut client
     );
-
-    let (game_account, _) = client
-        .new_game_account(
-            AzeAccountTemplate::GameAccount {
-                mutable_code: false,
-                storage_mode: AccountStorageMode::Local,
-            },
-            Some(game_slot_data.clone())
-        )
-        .unwrap();
 
     let game_account_storage = game_account.storage();
 
-    let (player_account, _) = client
-        .new_game_account(
-            AzeAccountTemplate::PlayerAccount {
-                mutable_code: false,
-                storage_mode: AccountStorageMode::Local,
-            },
-            None
-        )
-        .unwrap();
-
-    let (faucet_account, _) = client
-        .new_account(AccountTemplate::FungibleFaucet {
-            token_symbol: TokenSymbol::new("MATIC").unwrap(),
-            decimals: 8,
-            max_supply: 1_000_000_000,
-            storage_mode: AccountStorageMode::Local,
-        })
-        .unwrap();
-
-    let faucet_account_id = faucet_account.id();
     let fungible_asset = FungibleAsset::new(faucet_account_id, BUY_IN_AMOUNT).unwrap();
 
-    let sender_account_id = player_account.id();
+    let sender_account_id = player_account_id;
     let target_account_id = game_account.id();
 
     fund_account(&mut client, sender_account_id, faucet_account_id).await;
@@ -421,50 +349,15 @@ async fn test_play_call() {
 async fn test_play_fold() {
     let mut client: AzeClient = create_test_client();
 
-    let game_slot_data = GameStorageSlotData::new(
-        SMALL_BLIND_AMOUNT,
-        BUY_IN_AMOUNT as u8,
-        NO_OF_PLAYERS,
-        CURRENT_TURN_INDEX,
-        HIGHEST_BET,
-        PLAYER_INITIAL_BALANCE
+    let (game_account, player_account_id, faucet_account_id, game_slot_data) = setup_accounts(
+        &mut client
     );
-
-    let (game_account, _) = client
-        .new_game_account(
-            AzeAccountTemplate::GameAccount {
-                mutable_code: false,
-                storage_mode: AccountStorageMode::Local,
-            },
-            Some(game_slot_data.clone())
-        )
-        .unwrap();
 
     let game_account_storage = game_account.storage();
 
-    let (player_account, _) = client
-        .new_game_account(
-            AzeAccountTemplate::PlayerAccount {
-                mutable_code: false,
-                storage_mode: AccountStorageMode::Local,
-            },
-            None
-        )
-        .unwrap();
-
-    let (faucet_account, _) = client
-        .new_account(AccountTemplate::FungibleFaucet {
-            token_symbol: TokenSymbol::new("MATIC").unwrap(),
-            decimals: 8,
-            max_supply: 1_000_000_000,
-            storage_mode: AccountStorageMode::Local,
-        })
-        .unwrap();
-
-    let faucet_account_id = faucet_account.id();
     let fungible_asset = FungibleAsset::new(faucet_account_id, BUY_IN_AMOUNT).unwrap();
 
-    let sender_account_id = player_account.id();
+    let sender_account_id = player_account_id;
     let target_account_id = game_account.id();
 
     fund_account(&mut client, sender_account_id, faucet_account_id).await;
@@ -662,10 +555,9 @@ async fn assert_slot_status_fold(
     );
 
     let next_turn_index = slot_data.current_turn_index() + 13;
-    let current_turn_index_slot = 60;
     // check next turn index
     assert_eq!(
-        game_account_storage.get_item(current_turn_index_slot),
+        game_account_storage.get_item(CURRENT_TURN_INDEX_SLOT),
         RpoDigest::new([Felt::from(next_turn_index), Felt::ZERO, Felt::ZERO, Felt::ZERO])
     );
 }
