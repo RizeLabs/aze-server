@@ -118,6 +118,30 @@ pub fn create_play_call_note<R: FeltRng, N: NodeRpcClient, S: Store>(
     Ok(Note::new(vault, metadata, recipient))
 }
 
+pub fn create_play_fold_note<R: FeltRng, N: NodeRpcClient, S: Store>(
+    client: &mut Client<N, R, S>,
+    sender_account_id: AccountId,
+    target_account_id: AccountId,
+    assets: Vec<Asset>,
+    note_type: NoteType,
+    mut rng: RpoRandomCoin
+) -> Result<Note, NoteError> {
+    let note_script = include_str!("../../contracts/notes/game/fold.masm");
+    let script_ast = ProgramAst::parse(note_script).unwrap();
+    let note_script = client.compile_note_script(script_ast, vec![]).unwrap();
+
+    let note_inputs = NoteInputs::new(vec![]).unwrap();
+    let tag = NoteTag::from_account_id(target_account_id, NoteExecutionMode::Local)?;
+    let serial_num = rng.draw_word();
+    let aux = ZERO;
+
+    let metadata = NoteMetadata::new(sender_account_id, NoteType::Public, tag, aux)?;
+    let vault = NoteAssets::new(assets)?;
+    let recipient = NoteRecipient::new(serial_num, note_script, note_inputs);
+
+    Ok(Note::new(vault, metadata, recipient))
+}
+
 // TODO: remove this function after testing
 pub async fn mint_note(
     client: &mut AzeClient,
