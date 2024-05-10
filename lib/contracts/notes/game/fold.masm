@@ -5,6 +5,7 @@ use.miden::contracts::wallets::basic->wallet
 const.NO_OF_PLAYERS_INDEX=57
 const.CURRENT_TURN_INDEX=60
 const.PLAYER_STATS_SLOTS=13
+const.CARDS_SLOTS=52
 
 proc.play_fold
     push.CURRENT_TURN_INDEX exec.account::get_item
@@ -48,8 +49,8 @@ proc.play_fold
     # => [no_of_players, next_turn_index]
 
     # Calculate last_player_index = 52 + 13 * no_of_players + 0
-    push.13 mul
-    push.52 add
+    push.PLAYER_STATS_SLOTS mul
+    push.CARDS_SLOTS add
     # => [last_player_index, next_turn_index]
 
     mem_store.0

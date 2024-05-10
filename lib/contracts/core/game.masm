@@ -17,6 +17,7 @@ const.CURRENT_TURN_INDEX=60 # index of the player whose turn it is currently
 const.CURRENT_TURN_PLAYER_PUB_KEY_INDEX=60 # need to check it's storage initially small blind public key on slot 62
 const.CURRENT_PHASE=62 # whole game is divided into 4 phases
 const.PLAYER_STATS_SLOTS=13
+const.CARDS_SLOTS=52
 
 # game events 
 # TODO: fix some storage for the value corresponding to these events 
@@ -286,8 +287,8 @@ export.play_fold
     # => [no_of_players, next_turn_index]
 
     # Calculate last_player_index = 52 + 13 * no_of_players + 0
-    push.13 mul
-    push.52 add
+    push.PLAYER_STATS_SLOTS mul
+    push.CARDS_SLOTS add
     # => [last_player_index, next_turn_index]
 
     mem_store.0
