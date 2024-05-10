@@ -413,6 +413,7 @@ dependencies = [
 name = "aze-lib"
 version = "0.1.0"
 dependencies = [
+ "aze-types",
  "figment",
  "miden-assembly 0.9.1 (git+https://github.com/0xPolygonMiden/miden-vm.git?branch=main)",
  "miden-client",

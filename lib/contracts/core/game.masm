@@ -16,6 +16,7 @@ const.HIGHEST_BET_SLOT_INDEX=61 # highest bet amount which player will try to ma
 const.CURRENT_TURN_INDEX=60 # index of the player whose turn it is currently
 const.CURRENT_TURN_PLAYER_PUB_KEY_INDEX=60 # need to check it's storage initially small blind public key on slot 62
 const.CURRENT_PHASE=62 # whole game is divided into 4 phases
+const.PLAYER_STATS_SLOTS=13
 
 # game events 
 # TODO: fix some storage for the value corresponding to these events 
@@ -277,6 +278,21 @@ export.play_fold
 
     # adding 4 will give the slot of next player 
     push.4 add
+    # => [next_turn_index]
+
+    # find last player's index
+    push.NO_OF_PLAYERS_INDEX exec.account::get_item
+    drop drop drop
+    # => [no_of_players, next_turn_index]
+
+    # Calculate last_player_index = 52 + 13 * no_of_players + 0
+    push.13 mul
+    push.52 add
+    # => [last_player_index, next_turn_index]
+
+    mem_store.0
+    # => [next_turn_index]
+
     push.1
     # => [1, next_turn_index]
 
@@ -290,11 +306,11 @@ export.play_fold
 
         if.true  
             # if player has folded
-            dup push.103 lte
+            dup mem_load.0 lt
             # => [0/1, next_turn_index]
 
             if.true
-                push.13 add 
+                push.PLAYER_STATS_SLOTS add 
                 push.1
                 # => [1, next_turn_index + 13]
             else 
@@ -316,7 +332,7 @@ export.play_fold
             push.0
         end
     end
-    drop
+    dropw
     # => [...]
 end
 

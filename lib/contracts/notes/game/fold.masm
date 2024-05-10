@@ -2,7 +2,9 @@ use.miden::account
 use.miden::note
 use.miden::contracts::wallets::basic->wallet
 
+const.NO_OF_PLAYERS_INDEX=57
 const.CURRENT_TURN_INDEX=60
+const.PLAYER_STATS_SLOTS=13
 
 proc.play_fold
     push.CURRENT_TURN_INDEX exec.account::get_item
@@ -38,6 +40,21 @@ proc.play_fold
 
     # adding 4 will give the slot of next player 
     push.4 add
+    # => [next_turn_index]
+
+    # find last player's index
+    push.NO_OF_PLAYERS_INDEX exec.account::get_item
+    drop drop drop
+    # => [no_of_players, next_turn_index]
+
+    # Calculate last_player_index = 52 + 13 * no_of_players + 0
+    push.13 mul
+    push.52 add
+    # => [last_player_index, next_turn_index]
+
+    mem_store.0
+    # => [next_turn_index]
+
     push.1
     # => [1, next_turn_index]
 
@@ -51,11 +68,11 @@ proc.play_fold
 
         if.true  
             # if player has folded
-            dup push.103 lte
+            dup mem_load.0 lt
             # => [0/1, next_turn_index]
 
             if.true
-                push.13 add 
+                push.PLAYER_STATS_SLOTS add 
                 push.1
                 # => [1, next_turn_index + 13]
             else 
@@ -77,7 +94,7 @@ proc.play_fold
             push.0
         end
     end
-    drop
+    dropw
     # => [...]
 end
 

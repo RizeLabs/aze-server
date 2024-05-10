@@ -20,6 +20,7 @@ use miden_objects::{
 
 use miden_lib::{ transaction::TransactionKernel, AuthScheme };
 use crate::storage::GameStorageSlotData;
+use crate::constants::PLAYER_STATS_SLOTS;
 
 fn construct_game_constructor_storage(
     auth_scheme: AuthScheme,
@@ -173,7 +174,7 @@ fn construct_game_constructor_storage(
         ];
         player_pub_keys.extend(player_slots);
 
-        slot_index += 13; // since the mid 9 elements would cover the player stats and initially all those values are zero
+        slot_index += PLAYER_STATS_SLOTS; // since the mid 13 elements would cover the player stats and initially all those values are zero
     }
 
     // merge player_id with card_suit

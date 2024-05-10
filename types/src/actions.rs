@@ -1,15 +1,16 @@
 use actix_web::{
     error::ResponseError,
     get,
-    http::{header::ContentType, StatusCode},
-    post, put,
+    http::{ header::ContentType, StatusCode },
+    post,
+    put,
     web::Data,
     web::Json,
     web::Path,
     HttpResponse,
 };
 use derive_more::Display;
-use serde::{Deserialize, Serialize};
+use serde::{ Deserialize, Serialize };
 
 #[derive(Debug, Display)]
 pub enum GameActionError {

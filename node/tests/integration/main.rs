@@ -205,8 +205,6 @@ async fn test_create_aze_game_account() {
 async fn test_cards_distribution() {
     let mut client: AzeClient = create_test_client();
 
-    let slot_data = GameStorageSlotData::new(0, 0, 0, 0, 0, 0);
-
     let (game_account, player1_account_id, faucet_account_id, _) = setup_accounts(&mut client);
 
     let game_account_id = game_account.id();
@@ -222,6 +220,7 @@ async fn test_cards_distribution() {
         )
         .unwrap();
 
+    fund_account(&mut client, game_account_id, faucet_account_id).await;
     fund_account(&mut client, game_account_id, faucet_account_id).await;
 
     let fungible_asset = FungibleAsset::new(faucet_account_id, BUY_IN_AMOUNT).unwrap();
@@ -563,8 +562,6 @@ async fn assert_slot_status_fold(
 }
 
 async fn fund_account(client: &mut AzeClient, account_id: AccountId, faucet_account_id: AccountId) {
-    let note_1 = mint_note(client, account_id, faucet_account_id, NoteType::Public).await;
-    consume_notes(client, account_id, &[note_1]).await;
-    let note_2 = mint_note(client, account_id, faucet_account_id, NoteType::Public).await;
-    consume_notes(client, account_id, &[note_2]).await;
+    let note = mint_note(client, account_id, faucet_account_id, NoteType::Public).await;
+    consume_notes(client, account_id, &[note]).await;
 }
