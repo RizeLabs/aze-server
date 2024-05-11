@@ -5,20 +5,21 @@ use.std::crypto::dsa::rpo_falcon512
 use.miden::contracts::wallets::basic->basic_wallet
 use.miden::contracts::auth::basic
 
-# index corresponding to the information saved
 const.PLAYER_1_PUB_KEY_INDEX=65 # use this index to find other player pub key slot index which would always be second to the player account id
-const.SMALL_BLIND_INDEX=56
-const.BIG_BLIND_INDEX=57
-const.BUY_IN_INDEX=58
-const.NO_OF_PLAYERS_INDEX=59
+const.SMALL_BLIND_INDEX=54
+const.BIG_BLIND_INDEX=55
+const.BUY_IN_INDEX=56
+const.NO_OF_PLAYERS_INDEX=57
+const.RAISER_INDEX=58
+const.CURRENT_PLAYER_PUB_KEY_INDEX=60 # at 63 we stored pub key for current player (it will contain)
+const.HIGHEST_BET_SLOT_INDEX=61 # highest bet amount which player will try to match with call
 const.CURRENT_TURN_INDEX=60 # index of the player whose turn it is currently
-const.RAISER_INDEX=61
-const.CURRENT_TURN_PLAYER_PUB_KEY_INDEX=63 # need to check it's storage initially small blind public key on slot 62
-const.CURRENT_PLAYER_PUB_KEY_INDEX=62 # at 63 we stored pub key for current player (it will contain)
-const.HIGHEST_BET_SLOT_INDEX=64 # highest bet amount which player will try to match with call
-const.CURRENT_PHASE=65 # whole game is divided into 4 phases
+const.CURRENT_TURN_PLAYER_PUB_KEY_INDEX=60 # need to check it's storage initially small blind public key on slot 62
+const.CURRENT_PHASE=62 # whole game is divided into 4 phases
+const.PLAYER_CHECK_COUNTER=63 
+const.PLAYER_STATS_SLOTS=13
+const.CARDS_SLOTS=52
 
-const.NEXT_ACTIVE_PLAYER_KEY_INDEX=67 # next active player key index
 # game events 
 # TODO: fix some storage for the value corresponding to these events 
 const.PLAYER_BETTED_AMOUNT=169 # check slot (169 - 100) 
@@ -74,36 +75,45 @@ export.play_call
     # TODO: checks the player has enough amount for matching bet
     # TODO: checks the first player can't go for check  
 
-    # loaded current player index 
     push.CURRENT_TURN_PLAYER_PUB_KEY_INDEX exec.account::get_item
     # => [0, 0, 0, pub key index of current player]
     
     # dropping three zeroes 
-    drop drop drop
+    drop drop drop dup
+    # => [pub key index of current player, pub key index of current player]
 
-    # => [pub key index of current player]
     push.2 add exec.account::get_item
-    # => [0, 0, 0, player last bet]
+    # => [0, 0, 0, player last bet, pub key index of current player]
     drop drop drop
-    # => [player last bet]
+    # => [player last bet, pub key index of current player]
+
     # when user wants to just call and match the bet
     push.HIGHEST_BET_SLOT_INDEX exec.account::get_item 
-    # => [0, 0, 0, highest bet, player last bet] since we are currently storing everything in word 
+    # => [0, 0, 0, highest bet, player last bet, pub key index of current player] 
+
     drop drop drop
-    # => [0, 0, 0, highest bet, current bet]
-    drop drop drop
-    sub 
-    # => [highest bet - current bet] subtract this amount from player balance 
-    # => [difference]
-    push.CURRENT_TURN_PLAYER_PUB_KEY_INDEX
+    # => [highest bet, current bet, pub key index of current player]
+
+    swap sub 
+    # => [highest bet - current bet, pub key index of current player] subtract this amount from player balance 
+    # => [difference, pub key index of current player]
+
+    swap dup movup.2 swap
+    # => [current player pub key index, difference, current player pub key index]
     push.3 add exec.account::get_item
     drop drop drop
-    # => [balance, difference]
-    sub
-    # => [balance - difference]
-    push.CURRENT_TURN_PLAYER_PUB_KEY_INDEX.3
+    # => [balance, difference, current player pub key index]
+
+    swap sub
+    # => [balance - difference, current player pub key index]
+    swap padw drop movup.3
+    # => [current player pub key index, 0, 0, 0, remaining balance]
+    push.3 add 
+    # => [current player pub key index + 3, 0, 0, 0, remaining balance]
+
     # => updated player balance 
     exec.account::set_item 
+    dropw dropw
 
     # TODO: need to add procedure for updating player turns
 end
@@ -116,17 +126,8 @@ end
 
 export.play_raise
 
-    # raise amount = current player bet
-    push.CURRENT_PLAYER_PUB_KEY_INDEX drop drop drop
-    # [current turn pub key index]
-
-    push.2 add
-    # [current turn pub key index + 2, ]
-
-    exec.account.get_item drop drop drop
-    # [player_bet]
-
     # Tasks need to be performed:
+    # - get raise amount ✅
     # - update highest bet slot 62 ✅
     # - update raiser ✅
     # - update the remaining balance of player ✅
@@ -135,186 +136,289 @@ export.play_raise
     # - update phase/round n sum ✅
     # - increase the slot to next player who is playing 👀
 
-    # update highest bet
+    # => [player_bet]
+    dup mem_store.0
+    # => [player_bet]
     
-    push.HIGHEST_BET_SLOT_INDEX drop drop drop 
-    #[HIGHEST_BET_SLOT_INDEX, player_bet]
+    padw drop push.HIGHEST_BET_SLOT_INDEX
+    exec.account::set_item
+    dropw dropw
+    # => []
 
-    exec.account.set_item
+    mem_load.0
+    # => [player_bet]
+
+    ## raise amount = current player bet - it should be (bet amount - last call amount) ??
+    push.CURRENT_PLAYER_PUB_KEY_INDEX exec.account::get_item
+    # => [0, 0, 0, current turn player pub key index, player_bet]
+
+    drop drop drop
+    # => [current turn player pub key index, player_bet]
+
+    push.2 add
+    # => [current turn pub key index + 2, player_bet]
+    dup mem_store.1
+    # => [current turn pub key index + 2, player_bet]
+
+    padw drop movup.3
+    exec.account::set_item
+    dropw dropw
+    # => []
+
+    ## update raiser
+    mem_load.1 push.2 sub
+    # => [current turn pub key index]
+
+    padw drop push.RAISER_INDEX
+    #[RAISER_INDEX, 0, 0, 0, current turn pub key index]
+
+    exec.account::set_item
+    dropw dropw 
     #[]
 
-    # update raiser
+    ## update the remaining balance of player 
 
-    push.CURRENT_PLAYER_PUB_KEY_INDEX drop drop drop
-    #[CURRENT_PLAYER_PUB_KEY_INDEX]
-
-    push.RAISER_INDEX
-    #[RAISER_INDEX, CURRENT_PLAYER_PUB_KEY_INDEX]
-
-    exec.account.set_item
-    #[]
-
-
-    # update the remaining balance of player 
-
-    push.CURRENT_PLAYER_PUB_KEY_INDEX drop drop drop
-    # [CURRENT_PLAYER_PUB_KEY_INDEX]
+    push.CURRENT_PLAYER_PUB_KEY_INDEX exec.account::get_item drop drop drop
+    # [current turn player pub key index]
 
     push.3 add
-    # [CURRENT_PLAYER_PUB_KEY_INDEX + 3]
+    # [current turn player pub key index + 3]
 
     dup
-    # [CURRENT_PLAYER_PUB_KEY_INDEX + 3, CURRENT_PLAYER_PUB_KEY_INDEX + 3]
+    # [current turn player pub key index + 3, current turn player pub key index + 3]
 
+    exec.account::get_item drop drop drop 
+    # [player_remaining_balance, current turn player pub key index + 3]
 
-    exec.account.get_item drop drop drop 
-    # [player_remaining_balance, CURRENT_PLAYER_PUB_KEY_INDEX + 3]
+    push.HIGHEST_BET_SLOT_INDEX
+    # [HIGHEST_BET_SLOT_INDEX, player_remaining_balance, current turn player pub key index + 3]
 
-    push.HIGHEST_BET_SLOT_INDEX drop drop drop
-    # [HIGHEST_BET_SLOT_INDEX, player_remaining_balance, CURRENT_PLAYER_PUB_KEY_INDEX + 3]
-
-    exec.account.get_item drop drop drop 
-    # [player_bet, player_remaining_balance, CURRENT_PLAYER_PUB_KEY_INDEX + 3]
+    exec.account::get_item drop drop drop 
+    # [player_bet, player_remaining_balance, current turn player pub key index + 3] -> ig here we need player_remaining_balance and then player_bet or we need to take it's absolute value
     
+    dup.1 dup.1 gte assert
+    # [0/1, player_bet, player_remaining_balance, current turn player pub key index + 3]
+    # [player_bet, player_remaining_balance, current turn player pub key index + 3]
+
     sub
-    # [player_balance_after_bet, CURRENT_PLAYER_PUB_KEY_INDEX + 3]
-
-    dup push.0 
-    # [0, player_balance_after_bet ,player_balance_after_bet, CURRENT_PLAYER_PUB_KEY_INDEX + 3]
-
-    gte
-    # [1/0 ,player_balance_after_bet, CURRENT_PLAYER_PUB_KEY_INDEX + 3]
-
-    assert
-    # [player_balance_after_bet, CURRENT_PLAYER_PUB_KEY_INDEX + 3]
+    # [player_balance_after_bet, current turn player pub key index + 3]
 
     swap
-    # [CURRENT_PLAYER_PUB_KEY_INDEX + 3, player_balance_after_bet]
+    # [current turn player pub key index + 3, player_balance_after_bet]
 
-    exec.account.set_item
+    padw drop movup.3
+    # [current turn player pub key index + 3, 0, 0, 0, player_balance_after_bet]
+    exec.account::set_item
+    dropw dropw
     # []
 
-
+    # need to confirm the phase logic 
     # - update phase/round n sum
 
-    push.CURRENT_TURN_INDEX drop drop drop
+    # push.CURRENT_TURN_INDEX drop drop drop
     #[CURRENT_TURN_INDEX]
 
-    push.4 add
+    # push.4 add
     #[CURRENT_TURN_INDEX+4]
 
-    push.CURRENT_PHASE drop drop drop
+    # push.CURRENT_PHASE drop drop drop
     #[CURRENT_PHASE, CURRENT_TURN_INDEX+4]
 
-    add push.1 swap sub dup
+    # add push.1 swap sub dup
     #[CURRENT_PHASE + CURRENT_TURN_INDEX + 4 -1, CURRENT_PHASE + CURRENT_TURN_INDEX + 4 -1 ]
 
-    exec.account.get_item drop drop drop 
+    # exec.account::get_item drop drop drop 
     #[phase_n_sum, CURRENT_PHASE + CURRENT_TURN_INDEX + 4 -1]
 
-    push.HIGHEST_BET_SLOT_INDEX drop drop drop
+    # push.HIGHEST_BET_SLOT_INDEX drop drop drop
     #[HIGHEST_BET_SLOT_INDEX, phase_n_sum, CURRENT_PHASE + CURRENT_TURN_INDEX + 4 -1]
 
-    exec.account.get_item drop drop drop 
+    # exec.account::get_item drop drop drop 
     #[highest_bet, phase_n_sum, CURRENT_PHASE + CURRENT_TURN_INDEX + 4 -1]
 
-    add
+    # add
     #[highest_bet + phase_n_sum, CURRENT_PHASE + CURRENT_TURN_INDEX + 4 -1]
 
-    swap exec.account.set_item
+    # swap exec.account::set_item
     # []
 end
 
 
-export.find_next_active_player # why are you exporting this ?? we need to use this internally right 
+export.play_fold
+    # make is_fold of player 1
+    # inc turn
+    push.CURRENT_TURN_INDEX exec.account::get_item
+    # => [0, 0, 0, current_turn_index]
 
-    # update the slot for next active players public 
-    # iterate over the number of players starting from the index of current player + 1 
-    # for each player check is_fold = 0 or 1
-    # if 0 then set this to slot NEXT_ACTIVE_PLAYER_KEY_INDEX
-    # if 1 move to next player
+    drop drop drop
+    # => [current_turn_index]
 
-    push.CURRENT_TURN_PLAYER_PUB_KEY_INDEX drop drop drop
-    # => [CURRENT_TURN_PLAYER_PUB_KEY_INDEX]
-
-    push.10 add # assuming there are 9 stats values for each player
-    # => [CURRENT_TURN_PLAYER_PUB_KEY_INDEX + 10]
-
-    push.NO_OF_PLAYERS_INDEX drop drop drop
-
-    exec.account.get_item drop drop drop
-    # x = no of players 
-    # => [x, CURRENT_TURN_PLAYER_PUB_KEY_INDEX + 10]
-
-    # why are we pushing 9 and then multiplying it with no of players ?
-    push.9 mul 
-
-    # => [9 * x, CURRENT_TURN_PLAYER_PUB_KEY_INDEX + 10] 9 * x would be fold index of last player why are we checking that ??
-    push.NEXT_ACTIVE_PLAYER_KEY_INDEX drop drop drop 
-    
+    push.9
+    # 9, current_turn_index
     add
+    # => [current_turn_index + 9]
+    dup #for getting the get item
+    dup #for updating the turn
+    # => [current_turn_index + 9, current_turn_index + 9, current_turn_index + 9]
 
-    lte
-    #[1/0, CURRENT_TURN_PLAYER_PUB_KEY_INDEX + 10]
+    # getting the is_fold of player
+    exec.account::get_item
+    drop drop drop
+    # => [is_fold, current_turn_index + 9, current_turn_index + 9]
+    
+    # making sure that is_fold is zero currently
+    assertz
+    # => [current_turn_index + 9, current_turn_index + 9]
+    push.1
+    # => [1, current_turn_index + 9, current_turn_index + 9]
+    
+    swap padw drop movup.3
+    # => [current_turn_index + 9, 0, 0, 0, 1, current_turn_index + 9]
+    exec.account::set_item
+    dropw drop drop drop
+    # => [current_turn_index + 9]
 
-    drop dup
-    #[CURRENT_TURN_PLAYER_PUB_KEY_INDEX + 10]
+    # adding 4 will give the slot of next player 
+    push.4 add
+    # => [next_turn_index]
 
+    # find last player's index
+    push.NO_OF_PLAYERS_INDEX exec.account::get_item
+    drop drop drop
+    # => [no_of_players, next_turn_index]
+
+    # Calculate last_player_index = 52 + 13 * no_of_players + 0
+    push.PLAYER_STATS_SLOTS mul
+    push.CARDS_SLOTS add
+    # => [last_player_index, next_turn_index]
+
+    mem_store.0
+    # => [next_turn_index]
+
+    push.1
+    # => [1, next_turn_index]
 
     while.true
-        
 
-        ## FIND THE NUMBER OF ROWS
-        push.NO_OF_PLAYERS_INDEX drop drop drop
-        exec.account.get_item drop drop drop 
-        push.10 mul push.NEXT_ACTIVE_PLAYER_KEY_INDEX drop drop drop add
-        lte
-        #[1/0, CURRENT_TURN_PLAYER_PUB_KEY_INDEX + 10, CURRENT_TURN_PLAYER_PUB_KEY_INDEX + 10]
+        dup push.9 add
+        # => [next_turn_index + 9, next_turn_index]
+        exec.account::get_item
+        drop drop drop
+        # => [is_fold, next_turn_index]
 
-        mem_store.0
-        if.mem_load.0
-            #[CURRENT_TURN_PLAYER_PUB_KEY_INDEX + 10, CURRENT_TURN_PLAYER_PUB_KEY_INDEX + 10]
-            
-            push.1 sub
-            #[CURRENT_TURN_PLAYER_PUB_KEY_INDEX + 10 - 1, CURRENT_TURN_PLAYER_PUB_KEY_INDEX + 10]
+        if.true  
+            # if player has folded
+            dup mem_load.0 lt
+            # => [0/1, next_turn_index]
 
-            exec.account.get_item drop drop drop # we should be in the is_fold of current player
-            #[1/0, CURRENT_TURN_PLAYER_PUB_KEY_INDEX + 10]
-
-            mem_store.1 # store is_fold inside the mem_store
-            #[CURRENT_TURN_PLAYER_PUB_KEY_INDEX + 10]
-
-            # now check if fold
-            if.mem_load.1
-                push.10 add
-                #[CURRENT_TURN_PLAYER_PUB_KEY_INDEX + 10 + 10]
-
-            else
-                push.NEXT_ACTIVE_PLAYER_KEY_INDEX drop drop drop swap
-                #[CURRENT_TURN_PLAYER_PUB_KEY_INDEX + 10, NEXT_ACTIVE_PLAYER_KEY_INDEX]
-
-                push.10 sub
-                #[CURRENT_TURN_PLAYER_PUB_KEY_INDEX, NEXT_ACTIVE_PLAYER_KEY_INDEX]
-
-                exec.account.set_item
+            if.true
+                push.PLAYER_STATS_SLOTS add 
+                push.1
+                # => [1, next_turn_index + 13]
+            else 
                 push.0
             end
+        else 
+            # checking is fold
+            # => [next_turn_index]
 
-        else
-            ## FIND THE NUMBER OF ROWS
-            push.NO_OF_PLAYERS_INDEX drop drop drop
-            exec.account.get_item drop drop drop 
-            push.10 mul push.NEXT_ACTIVE_PLAYER_KEY_INDEX drop drop drop add
-            # [num_of_rows, CURRENT_TURN_PLAYER_PUB_KEY_INDEX + 10]
+            padw drop
+            # => [0, 0, 0, next_turn_index]
 
-            sub
-            # [CURRENT_TURN_PLAYER_PUB_KEY_INDEX + 10 - num_of_rows]
+            push.CURRENT_TURN_INDEX # slot of current turn
+            # => [CURRENT_TURN_INDEX, 0, 0, 0, next_turn_index]
+
+            exec.account::set_item 
+            dropw dropw
+            # => [...]
+            push.0
+        end
     end
+    dropw
+    # => [...]
 end
+
+export.play_check
+
+    # => [...]
+    push.PLAYER_CHECK_COUNTER exec.account::get_item
+    # => [0, 0, 0, player_check_counter]
+    drop drop drop
+    push.1 add
+    # => [player_check_counter + 1]
+    padw drop push.PLAYER_CHECK_COUNTER
+    exec.account::set_item
+    dropw dropw
+
+    # need to update the turn of the player
+    push.CURRENT_TURN_INDEX exec.account::get_item
+    # => [0, 0, 0, current_turn_index]
+    drop drop drop
+    # => [current_turn_index]
+
+    push.PLAYER_STATS_SLOTS add 
+    # => [current_turn_index + 13]
+    # => [next_turn_index]
+
+    push.NO_OF_PLAYERS_INDEX exec.account::get_item
+    drop drop drop
+    # => [no_of_players, next_turn_index]
+
+    # Calculate last_player_index = 52 + 13 * no_of_players + 0
+    push.PLAYER_STATS_SLOTS mul
+    push.CARDS_SLOTS add
+    # => [last_player_index, next_turn_index]
+
+    mem_store.0
+    # => [next_turn_index]
+
+    push.1
+    # => [1, next_turn_index]
+
+    while.true
+
+        dup push.9 add
+        # => [next_turn_index + 9, next_turn_index]
+        exec.account::get_item
+        drop drop drop
+        # => [is_fold, next_turn_index]
+
+        if.true  
+            # if player has folded
+            dup mem_load.0 lt
+            # => [0/1, next_turn_index]
+
+            if.true
+                push.PLAYER_STATS_SLOTS add 
+                push.1
+                # => [1, next_turn_index + 13]
+            else 
+                push.0
+            end
+        else 
+            # checking is fold
+            # => [next_turn_index]
+
+            padw drop
+            # => [0, 0, 0, next_turn_index]
+
+            push.CURRENT_TURN_INDEX # slot of current turn
+            # => [CURRENT_TURN_INDEX, 0, 0, 0, next_turn_index]
+
+            exec.account::set_item 
+            dropw dropw
+            # => [...]
+            push.0
+        end
+    end
+    dropw
+    # => [...]
+
+end
+
 
 # some basic account methods 
 
 export.basic_wallet::receive_asset
 export.basic_wallet::send_asset
 export.basic::auth_tx_rpo_falcon512
-

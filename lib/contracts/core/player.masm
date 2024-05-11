@@ -5,13 +5,11 @@ use.miden::account
 export.basic_wallet::receive_asset
 export.basic_wallet::send_asset
 export.basic_eoa::auth_tx_rpo_falcon512
-export.account::set_item
+# export.account::set_item
     
-# export.receive_cards
-    # call.account::set_item
-
-    # prepare stack for return
-    # movup.4 drop movup.4 drop movup.4 drop
-# end
-
-    
+export.receive_cards
+    exec.account::set_item
+    # => [R, V]
+    # drop the root
+    dropw 
+end

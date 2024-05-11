@@ -3,8 +3,6 @@ use aze_lib::client::create_aze_client;
 use aze_lib::notes::create_send_card_note;
 use aze_lib::utils::{get_new_key_pair_with_advice_map};
 use aze_lib::constants::DEFAULT_AUTH_SCRIPT;
-use crate::model::accounts::Task;
-use crate::model::accounts::TaskState;
 use miden_lib::AuthScheme;
 use miden_objects::{
     accounts::{Account, AccountId, AccountStorage, StorageSlotType},
