@@ -1,7 +1,7 @@
 mod api;
 use api::{
     accounts::{ create_aze_game_account, create_aze_player_account },
-    action::{ aze_poker_game_action, aze_poker_game_call, aze_poker_game_fold },
+    action::{ aze_poker_game_action, aze_poker_game_call, aze_poker_game_fold, aze_poker_game_check },
 };
 use actix_web::{ HttpServer, App, middleware::Logger };
 
@@ -19,6 +19,7 @@ async fn main() -> std::io::Result<()> {
             .service(aze_poker_game_action)
             .service(aze_poker_game_call)
             .service(aze_poker_game_fold)
+            .service(aze_poker_game_check)
     })
         .bind(("127.0.0.1", 8000))?
         .run().await
