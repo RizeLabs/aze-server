@@ -3,7 +3,7 @@ use.miden::note
 use.miden::contracts::wallets::basic->wallet
 
 const.NO_OF_PLAYERS_INDEX=57
-const.CURRENT_TURN_INDEX=60
+const.CURRENT_TURN_PLAYER_PUB_KEY_INDEX=60
 const.PLAYER_STATS_SLOTS=13
 const.CARDS_SLOTS=52
 const.PLAYER_CHECK_COUNTER=63
@@ -13,20 +13,41 @@ proc.play_check
     push.PLAYER_CHECK_COUNTER exec.account::get_item
     # => [0, 0, 0, player_check_counter]
     drop drop drop
-    push.1 add
-    # => [player_check_counter + 1]
+    # => [player_check_counter]
+
+    # check whether previous players have checked or not
+    dup push.1 add
+    push.CURRENT_TURN_PLAYER_PUB_KEY_INDEX exec.account::get_item
+    # => [0, 0, 0, current_turn_player_pub_key_index, player_check_counter + 1, player_check_counter]
+    drop drop drop
+    # => [current_turn_player_pub_key_index, player_check_counter + 1, player_check_counter]
+    push.CARDS_SLOTS sub
+    push.PLAYER_STATS_SLOTS div
+    # => [player no., player_check_counter + 1, player_check_counter]
+    eq
+    # => [0/1, player_check_counter]
+
+    if.true
+        push.1 add
+        # => [player_check_counter + 1]
+    else
+        drop
+        # => [...]
+    end
+
     padw drop push.PLAYER_CHECK_COUNTER
     exec.account::set_item
     dropw dropw
+    # => [...]
 
     # need to update the turn of the player
-    push.CURRENT_TURN_INDEX exec.account::get_item
-    # => [0, 0, 0, current_turn_index]
+    push.CURRENT_TURN_PLAYER_PUB_KEY_INDEX exec.account::get_item
+    # => [0, 0, 0, current_turn_player_pub_key_index]
     drop drop drop
-    # => [current_turn_index]
+    # => [current_turn_player_pub_key_index]
 
     push.PLAYER_STATS_SLOTS add 
-    # => [current_turn_index + 13]
+    # => [current_turn_player_pub_key_index + 13]
     # => [next_turn_index]
 
     push.NO_OF_PLAYERS_INDEX exec.account::get_item
@@ -71,8 +92,8 @@ proc.play_check
             padw drop
             # => [0, 0, 0, next_turn_index]
 
-            push.CURRENT_TURN_INDEX # slot of current turn
-            # => [CURRENT_TURN_INDEX, 0, 0, 0, next_turn_index]
+            push.CURRENT_TURN_PLAYER_PUB_KEY_INDEX # slot of current turn
+            # => [CURRENT_TURN_PLAYER_PUB_KEY_INDEX, 0, 0, 0, next_turn_index]
 
             exec.account::set_item 
             dropw dropw
