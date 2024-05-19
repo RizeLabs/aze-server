@@ -153,47 +153,67 @@ export.play_call
     # TODO: checks the player has enough amount for matching bet
     # TODO: checks the first player can't go for check  
 
-    push.CURRENT_TURN_PLAYER_PUB_KEY_INDEX exec.account::get_item
-    # => [0, 0, 0, pub key index of current player]
+    push.CURRENT_TURN_INDEX exec.account::get_item
+    # => [0, 0, 0, current_turn_index]
     
     # dropping three zeroes 
     drop drop drop dup
-    # => [pub key index of current player, pub key index of current player]
+    # => [current_turn_index, current_turn_index]
 
-    push.2 add exec.account::get_item
-    # => [0, 0, 0, player last bet, pub key index of current player]
+    push.3 add exec.account::get_item
+    # => [0, 0, 0, player last bet, current_turn_index]
     drop drop drop
-    # => [player last bet, pub key index of current player]
+    # => [player last bet, current_turn_index]
 
     # when user wants to just call and match the bet
     push.HIGHEST_BET_SLOT_INDEX exec.account::get_item 
-    # => [0, 0, 0, highest bet, player last bet, pub key index of current player] 
+    # => [0, 0, 0, highest bet, player last bet, current_turn_index] 
 
     drop drop drop
-    # => [highest bet, current bet, pub key index of current player]
+    # => [highest bet, current bet, current_turn_index]
 
     swap sub 
-    # => [highest bet - current bet, pub key index of current player] subtract this amount from player balance 
-    # => [difference, pub key index of current player]
+    # => [highest bet - current bet, current_turn_index] subtract this amount from player balance 
+    # => [difference, current_turn_index]
 
     swap dup movup.2 swap
-    # => [current player pub key index, difference, current player pub key index]
-    push.3 add exec.account::get_item
+    # => [current_turn_index, difference, current_turn_index]
+    push.4 add exec.account::get_item
     drop drop drop
-    # => [balance, difference, current player pub key index]
+    # => [balance, difference, current_turn_index]
 
     swap sub
-    # => [balance - difference, current player pub key index]
+    # => [balance - difference, current_turn_index]
     swap padw drop movup.3
-    # => [current player pub key index, 0, 0, 0, remaining balance]
-    push.3 add 
-    # => [current player pub key index + 3, 0, 0, 0, remaining balance]
+    # => [current_turn_index, 0, 0, 0, remaining balance]
+    push.4 add 
+    # => [current_turn_index + 4, 0, 0, 0, remaining balance]
 
     # => updated player balance 
     exec.account::set_item 
     dropw dropw
 
-    # TODO: need to add procedure for updating player turns
+    # update player last bet
+    push.HIGHEST_BET_SLOT_INDEX exec.account::get_item
+    # => [0, 0, 0, highest bet]
+    drop drop drop
+    # => [highest bet]
+
+    push.CURRENT_TURN_INDEX exec.account::get_item
+    # => [0, 0, 0, current_turn_index, highest bet]
+    drop drop drop
+    # => [current_turn_index, highest_bet]
+    push.3 add
+    # => [current_turn_index + 3, highest_bet]
+    padw drop movup.3
+    # => [current_turn_index + 3, 0, 0, 0, highest_bet]
+
+    exec.account::set_item
+    dropw dropw
+    # => [...]
+
+    # update current turn
+    exec.update_current_turn
 end
 
 # need to setup asm build first for this 
