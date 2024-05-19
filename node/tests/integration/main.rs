@@ -489,7 +489,7 @@ async fn assert_slot_status_raise(
     assert_eq!(
         game_account_storage.get_item(slot_index),
         RpoDigest::new([
-            Felt::from(slot_data.current_turn_index()),
+            Felt::from(slot_data.current_turn_index() + 13),
             Felt::ZERO,
             Felt::ZERO,
             Felt::ZERO,
