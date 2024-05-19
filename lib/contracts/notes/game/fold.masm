@@ -2,55 +2,32 @@ use.miden::account
 use.miden::note
 use.miden::contracts::wallets::basic->wallet
 
-const.NO_OF_PLAYERS_INDEX=57
-const.CURRENT_TURN_INDEX=60
 const.PLAYER_STATS_SLOTS=13
-const.CARDS_SLOTS=52
+const.NO_OF_PLAYERS_INDEX=57
+const.RAISER_INDEX=58
+const.CURRENT_TURN_INDEX=60
+const.CURRENT_PHASE=62
+const.PLAYER_CHECK_COUNTER=63
+const.FIRST_PLAYER_INDEX=64
 
-proc.play_fold
+proc.update_current_turn
     push.CURRENT_TURN_INDEX exec.account::get_item
     # => [0, 0, 0, current_turn_index]
-
     drop drop drop
     # => [current_turn_index]
 
-    push.9
-    # 9, current_turn_index
-    add
-    # => [current_turn_index + 9]
-    dup #for getting the get item
-    dup #for updating the turn
-    # => [current_turn_index + 9, current_turn_index + 9, current_turn_index + 9]
-
-    # getting the is_fold of player
-    exec.account::get_item
-    drop drop drop
-    # => [is_fold, current_turn_index + 9, current_turn_index + 9]
-    
-    # making sure that is_fold is zero currently
-    assertz
-    # => [current_turn_index + 9, current_turn_index + 9]
-    push.1
-    # => [1, current_turn_index + 9, current_turn_index + 9]
-    
-    swap padw drop movup.3
-    # => [current_turn_index + 9, 0, 0, 0, 1, current_turn_index + 9]
-    exec.account::set_item
-    dropw drop drop drop
-    # => [current_turn_index + 9]
-
-    # adding 4 will give the slot of next player 
-    push.4 add
+    push.PLAYER_STATS_SLOTS add 
+    # => [current_turn_index + 13]
     # => [next_turn_index]
 
-    # find last player's index
     push.NO_OF_PLAYERS_INDEX exec.account::get_item
     drop drop drop
     # => [no_of_players, next_turn_index]
 
-    # Calculate last_player_index = 52 + 13 * no_of_players + 0
+    # Calculate last_player_index = 64 + 13 * (no_of_players - 1) + 0
+    push.1 sub
     push.PLAYER_STATS_SLOTS mul
-    push.CARDS_SLOTS add
+    push.FIRST_PLAYER_INDEX add
     # => [last_player_index, next_turn_index]
 
     mem_store.0
@@ -61,8 +38,8 @@ proc.play_fold
 
     while.true
 
-        dup push.9 add
-        # => [next_turn_index + 9, next_turn_index]
+        dup push.10 add
+        # => [next_turn_index + 10, next_turn_index]
         exec.account::get_item
         drop drop drop
         # => [is_fold, next_turn_index]
@@ -77,15 +54,28 @@ proc.play_fold
                 push.1
                 # => [1, next_turn_index + 13]
             else 
-                push.0
+                # Rotate turn
+                push.FIRST_PLAYER_INDEX
+                push.1
+                # => [1, first_player_index]
             end
         else 
-            # checking is fold
-            # => [next_turn_index]
-
-            padw drop
-            # => [0, 0, 0, next_turn_index]
-
+            # if player has not folded
+            dup mem_load.0 lte
+            # => [0/1, next_turn_index]
+            
+            if.true
+                # => [next_turn_index]
+                padw drop
+                # => [0, 0, 0, next_turn_index]
+            else 
+                # Rotate turn
+                push.FIRST_PLAYER_INDEX
+                padw drop
+                # => [0, 0, 0, first_player_index]
+            end
+            
+            dup.3 mem_store.1
             push.CURRENT_TURN_INDEX # slot of current turn
             # => [CURRENT_TURN_INDEX, 0, 0, 0, next_turn_index]
 
@@ -97,6 +87,92 @@ proc.play_fold
     end
     dropw
     # => [...]
+end
+
+proc.play_fold
+    push.CURRENT_TURN_INDEX exec.account::get_item
+    # => [0, 0, 0, current_turn_index]
+
+    drop drop drop
+    # => [current_turn_index]
+
+    push.10 add
+    # => [current_turn_index + 10]
+    dup #for updating the turn
+    # => [current_turn_index + 10, current_turn_index + 10]
+
+    # getting the is_fold of player
+    exec.account::get_item
+    drop drop drop
+    # => [is_fold, current_turn_index + 10]
+    
+    # making sure that is_fold is zero currently
+    assertz
+    # => [current_turn_index + 10]
+    push.1
+    # => [1, current_turn_index + 10]
+    
+    swap padw drop movup.3
+    # => [current_turn_index + 10, 0, 0, 0, 1]
+    exec.account::set_item
+    dropw dropw
+    # => [...]
+
+    # update the current turn
+    exec.update_current_turn
+
+    # update current phase
+    mem_load.1
+    # => [next_turn_index]
+
+    push.RAISER_INDEX exec.account::get_item
+    # => [0, 0, 0, raiser_index, next_turn_index]
+    drop drop drop
+    # => [raiser_index, next_turn_index]
+
+    eq
+    # => [raiser_index == next_turn_index]
+
+    if.true
+        push.CURRENT_PHASE exec.account::get_item
+        # => [0, 0, 0, current_phase]
+        drop drop drop
+        # => [current_phase]
+        push.1 add
+        # => [current_phase + 1]
+        padw drop push.CURRENT_PHASE 
+        exec.account::set_item
+        dropw
+
+        # reset raiser index
+        padw push.RAISER_INDEX
+        exec.account::set_item
+        dropw 
+
+        # reset check count
+        push.0 padw drop
+        push.PLAYER_CHECK_COUNTER exec.account::set_item
+        dropw 
+
+        # update current turn
+        push.FIRST_PLAYER_INDEX
+        # => [first_player_index]
+
+        dup push.10 add
+        exec.account::get_item drop drop drop
+        # => [is_fold, first_player_index]
+
+        swap padw drop
+        push.CURRENT_TURN_INDEX
+        exec.account::set_item
+        dropw dropw
+
+        if.true
+            exec.update_current_turn
+        end
+    end
+
+    dropw
 end
 
 begin 
