@@ -1109,17 +1109,9 @@ async fn fund_account(client: &mut AzeClient, account_id: AccountId, faucet_acco
     consume_notes(client, account_id, &[note]).await;
 }
 
-async fn log_slots(client: &AzeClient, account_id: AccountId) {
-    let (regular_account, _seed) = client.get_account(account_id).unwrap();
-    for i in 1..117 {
-        println!("Account slot {:?} --> {:?}", i, regular_account.storage().get_item(i));
-    }
-}
-
 async fn assert_next_turn(client: &AzeClient, account_id: AccountId, player_index: u8, last_raiser_index: RpoDigest, last_phase_digest: RpoDigest) {
     let (account, _) = client.get_account(account_id).unwrap();
     let game_account_storage = account.storage();
-    log_slots(client, account_id).await;
 
     let mut next_player_index = if player_index == LAST_PLAYER_INDEX {
         FIRST_PLAYER_INDEX
