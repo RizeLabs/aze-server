@@ -2,13 +2,12 @@ use.miden::account
 use.miden::note
 use.miden::contracts::wallets::basic->wallet
 
-const.PLAYER_STATS_SLOTS=13
-const.CARDS_SLOTS=52
 const.NO_OF_PLAYERS_INDEX=57
 const.RAISER_INDEX=58
-const.CURRENT_TURN_INDEX=60
-const.CURRENT_PHASE=62
-const.PLAYER_CHECK_COUNTER=63
+const.CURRENT_TURN_INDEX=60 # at 63 we stored pub key for current player (it will contain)
+const.HIGHEST_BET_SLOT_INDEX=61 # highest bet amount which player will try to match with call
+const.PLAYER_STATS_SLOTS=13
+const.CARDS_SLOTS=52
 
 proc.update_current_turn
 
@@ -94,106 +93,82 @@ proc.update_current_turn
     # => [...]
 end
 
-proc.play_fold
-    push.CURRENT_TURN_INDEX exec.account::get_item
-    # => [0, 0, 0, current_turn_index]
-
-    drop drop drop
-    # => [current_turn_index]
-
-    push.10 add
-    # => [current_turn_index + 10]
-    dup #for updating the turn
-    # => [current_turn_index + 10, current_turn_index + 10]
-
-    # getting the is_fold of player
-    exec.account::get_item
-    drop drop drop
-    # => [is_fold, current_turn_index + 10]
+proc.play_bet
+    # => [player_bet]
+    dup mem_store.0
+    # => [player_bet]
     
-    # making sure that is_fold is zero currently
-    assertz
-    # => [current_turn_index + 10]
-    push.1
-    # => [1, current_turn_index + 10]
-    
-    swap padw drop movup.3
-    # => [current_turn_index + 10, 0, 0, 0, 1]
+    padw drop push.HIGHEST_BET_SLOT_INDEX
     exec.account::set_item
     dropw dropw
-    # => [...]
+    # => []
 
-    # update the current turn
-    exec.update_current_turn
+    mem_load.0
+    # => [player_bet]
 
-    # update current phase
-    mem_load.1
-    # => [next_turn_index]
+    ## raise amount = current player bet - it should be (bet amount - last call amount) ??
+    push.CURRENT_TURN_INDEX exec.account::get_item
+    # => [0, 0, 0, current turn index, player_bet]
 
-    push.RAISER_INDEX exec.account::get_item
-    # => [0, 0, 0, raiser_index, next_turn_index]
     drop drop drop
-    # => [raiser_index, next_turn_index]
+    # => [current turn index, player_bet]
 
-    eq
-    # => [raiser_index == next_turn_index]
+    push.3 add
+    # => [current turn index + 3, player_bet]
+    dup mem_store.1
+    # => [current turn index + 3, player_bet]
 
-    if.true
-        push.CURRENT_PHASE exec.account::get_item
-        # => [0, 0, 0, current_phase]
-        drop drop drop
-        # => [current_phase]
-        push.1 add
-        # => [current_phase + 1]
-        padw drop push.CURRENT_PHASE 
-        exec.account::set_item
-        dropw
+    padw drop movup.3
+    exec.account::set_item
+    dropw 
+    # => []
 
-        # reset raiser index
-        padw push.RAISER_INDEX
-        exec.account::set_item
-        dropw 
+    ## update the remaining balance of player 
 
-        # reset check count
-        push.0 padw drop
-        push.PLAYER_CHECK_COUNTER exec.account::set_item
-        dropw 
+    push.CURRENT_TURN_INDEX exec.account::get_item drop drop drop
+    # [current turn index]
 
-        # update current turn
-        push.CARDS_SLOTS
-        push.PLAYER_STATS_SLOTS add 
-        push.1 sub
-        # => [first_player_index]
+    push.4 add
+    # [current turn index + 4]
 
-        dup push.10 add
-        exec.account::get_item drop drop drop
-        # => [is_fold, first_player_index]
+    dup
+    # [current turn index + 4, current turn index + 4]
 
-        if.true
-            padw drop
-            push.CURRENT_TURN_INDEX
-            exec.account::set_item
-            dropw dropw
+    exec.account::get_item drop drop drop 
+    # [player_remaining_balance, current turn index + 4]
 
-            exec.update_current_turn
-        else 
-            padw drop
-            push.CURRENT_TURN_INDEX
-            exec.account::set_item
-            dropw dropw
-        end
+    push.HIGHEST_BET_SLOT_INDEX
+    # [HIGHEST_BET_SLOT_INDEX, player_remaining_balance, current turn index + 4]
 
-    else
-        push.1 drop
-    end
+    exec.account::get_item drop drop drop 
+    # [player_bet, player_remaining_balance, current turn index + 4] -> ig here we need player_remaining_balance and then player_bet or we need to take it's absolute value
+    
+    dup.1 dup.1 gte assert
+    # [0/1, player_bet, player_remaining_balance, current turn index + 4]
+    # [player_bet, player_remaining_balance, current turn index + 4]
 
-    dropw
+    sub
+    # [player_balance_after_bet, current turn index + 4]
+
+    swap
+    # [current turn index + 4, player_balance_after_bet]
+
+    padw drop movup.3
+    # [current turn index + 4, 0, 0, 0, player_balance_after_bet]
+    exec.account::set_item
+    dropw dropw
+    # []
+
+    exec.update_current_turn
 end
 
-begin 
+begin   
     dropw
 
-    call.play_fold
+    push.0 exec.note::get_inputs drop
+    mem_loadw drop drop drop
+
+    call.play_bet
     # => [...]
 
     dropw
