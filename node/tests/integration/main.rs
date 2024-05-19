@@ -616,8 +616,8 @@ async fn assert_slot_status_fold(
     let (account, _) = client.get_account(account_id).unwrap();
     let game_account_storage = account.storage();
 
-    let fold_index = slot_data.current_turn_index() + 9;
-
+    let fold_index = slot_data.current_turn_index() + 10;
+    
     // check is_fold
     assert_eq!(
         game_account_storage.get_item(fold_index),
