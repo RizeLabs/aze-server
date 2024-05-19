@@ -4,20 +4,18 @@ use.std::crypto::dsa::rpo_falcon512
 use.miden::contracts::wallets::basic->basic_wallet
 use.miden::contracts::auth::basic
 
-const.PLAYER_1_PUB_KEY_INDEX=65 # use this index to find other player pub key slot index which would always be second to the player account id
+const.PLAYER_STATS_SLOTS=13
 const.SMALL_BLIND_INDEX=54
 const.BIG_BLIND_INDEX=55
 const.BUY_IN_INDEX=56
 const.NO_OF_PLAYERS_INDEX=57
 const.RAISER_INDEX=58
-const.CURRENT_PLAYER_PUB_KEY_INDEX=60 # at 63 we stored pub key for current player (it will contain)
 const.HIGHEST_BET_SLOT_INDEX=61 # highest bet amount which player will try to match with call
 const.CURRENT_TURN_INDEX=60 # index of the player whose turn it is currently
 const.CURRENT_TURN_PLAYER_PUB_KEY_INDEX=60 # need to check it's storage initially small blind public key on slot 62
 const.CURRENT_PHASE=62 # whole game is divided into 4 phases
 const.PLAYER_CHECK_COUNTER=63 
-const.PLAYER_STATS_SLOTS=13
-const.CARDS_SLOTS=52
+const.FIRST_PLAYER_INDEX=64
 
 # game events 
 # TODO: fix some storage for the value corresponding to these events 
@@ -82,10 +80,10 @@ export.update_current_turn
     drop drop drop
     # => [no_of_players, next_turn_index]
 
-    # Calculate last_player_index = 52 + 13 * no_of_players - 1 
-    push.PLAYER_STATS_SLOTS mul
-    push.CARDS_SLOTS add
+    # Calculate last_player_index = 64 + 13 * (no_of_players - 1) + 0
     push.1 sub
+    push.PLAYER_STATS_SLOTS mul
+    push.FIRST_PLAYER_INDEX add
     # => [last_player_index, next_turn_index]
 
     mem_store.0
@@ -113,9 +111,7 @@ export.update_current_turn
                 # => [1, next_turn_index + 13]
             else 
                 # Rotate turn
-                push.CARDS_SLOTS
-                push.PLAYER_STATS_SLOTS add 
-                push.1 sub
+                push.FIRST_PLAYER_INDEX
                 push.1
                 # => [1, first_player_index]
             end
@@ -130,9 +126,7 @@ export.update_current_turn
                 # => [0, 0, 0, next_turn_index]
             else 
                 # Rotate turn
-                push.CARDS_SLOTS
-                push.PLAYER_STATS_SLOTS add 
-                push.1 sub
+                push.FIRST_PLAYER_INDEX
                 padw drop
                 # => [0, 0, 0, first_player_index]
             end
@@ -255,31 +249,21 @@ export.play_call
         dropw drop drop
 
         # update current turn
-        push.CARDS_SLOTS
-        push.PLAYER_STATS_SLOTS add 
-        push.1 sub
+        push.FIRST_PLAYER_INDEX
         # => [first_player_index]
 
         dup push.10 add
         exec.account::get_item drop drop drop
         # => [is_fold, first_player_index]
 
+        swap padw drop
+        push.CURRENT_TURN_INDEX
+        exec.account::set_item
+        dropw dropw
+
         if.true
-            padw drop
-            push.CURRENT_TURN_INDEX
-            exec.account::set_item
-            dropw dropw
-
             exec.update_current_turn
-        else 
-            padw drop
-            push.CURRENT_TURN_INDEX
-            exec.account::set_item
-            dropw dropw
         end
-
-    else
-        push.1 drop
     end
 
     dropw drop drop drop
@@ -481,30 +465,21 @@ export.play_fold
         dropw 
 
         # update current turn
-        push.CARDS_SLOTS
-        push.PLAYER_STATS_SLOTS add 
-        push.1 sub
+        push.FIRST_PLAYER_INDEX
         # => [first_player_index]
 
         dup push.10 add
         exec.account::get_item drop drop drop
         # => [is_fold, first_player_index]
 
-        if.true
-            padw drop
-            push.CURRENT_TURN_INDEX
-            exec.account::set_item
-            dropw dropw
+        swap padw drop
+        push.CURRENT_TURN_INDEX
+        exec.account::set_item
+        dropw dropw
 
+        if.true
             exec.update_current_turn
-        else 
-            padw drop
-            push.CURRENT_TURN_INDEX
-            exec.account::set_item
-            dropw dropw
         end
-    else
-        push.1 drop
     end
 
     dropw
@@ -518,9 +493,7 @@ export.play_check
     drop drop drop
     # => [current_turn_index, 0]
     dup mem_store.2
-    push.CARDS_SLOTS 
-    push.PLAYER_STATS_SLOTS add
-    push.1 sub
+    push.FIRST_PLAYER_INDEX
     # => [first_player_index, current_turn_index, 0]
     dup.1 dup.1 neq
     # => [0/1, first_player_index, current_turn_index, 0]
@@ -544,7 +517,7 @@ export.play_check
         dup.1 dup.1 neq
         # => [0/1, first_player_index + 13, current_turn_index, active_players_before_current]
     end
-
+    
     drop drop
     # => [active_players_before_current]
     push.PLAYER_CHECK_COUNTER exec.account::get_item
@@ -578,9 +551,9 @@ export.play_check
     while.true
         dup
         # => [no_of_players, no_of_players, no_of_players]
-        push.PLAYER_STATS_SLOTS mul
-        push.CARDS_SLOTS add
         push.1 sub
+        push.PLAYER_STATS_SLOTS mul
+        push.FIRST_PLAYER_INDEX add
         # => [player_index, no_of_players, no_of_players]
 
         push.10 add exec.account::get_item
@@ -589,9 +562,6 @@ export.play_check
 
         if.true
             swap push.1 sub swap
-            # => [no_of_players, active_players]
-        else
-            push.1 drop
             # => [no_of_players, active_players]
         end
 
@@ -614,10 +584,8 @@ export.play_check
     # => [current_turn_index, 0/1]
 
     # compare with big blind index
-    push.PLAYER_STATS_SLOTS 
-    push.2 mul
-    push.CARDS_SLOTS add
-    push.1 sub
+    push.FIRST_PLAYER_INDEX
+    push.PLAYER_STATS_SLOTS add
     # => [big_blind_index, current_turn_index, 0/1]
 
     eq
@@ -656,33 +624,24 @@ export.play_check
         dropw dropw
 
         # update current turn
-        push.CARDS_SLOTS
-        push.PLAYER_STATS_SLOTS add 
-        push.1 sub
+        push.FIRST_PLAYER_INDEX
         # => [first_player_index]
 
         dup push.10 add
         exec.account::get_item drop drop drop
         # => [is_fold, first_player_index]
 
+        swap padw drop
+        push.CURRENT_TURN_INDEX
+        exec.account::set_item
+        dropw drop drop drop
+
         if.true
-            padw drop
-            push.CURRENT_TURN_INDEX
-            exec.account::set_item
-            dropw dropw
-
             exec.update_current_turn
-        else 
-            padw drop
-            push.CURRENT_TURN_INDEX
-            exec.account::set_item
-            dropw dropw
         end
-
-    else
-        push.1 drop
-        # => [...]
     end
+
+    drop
 end
 
 

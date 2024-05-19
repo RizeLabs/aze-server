@@ -3,13 +3,13 @@ use.miden::note
 use.miden::contracts::wallets::basic->wallet
 
 const.PLAYER_STATS_SLOTS=13
-const.CARDS_SLOTS=52
 const.NO_OF_PLAYERS_INDEX=57
 const.RAISER_INDEX=58
 const.CURRENT_TURN_INDEX=60
-const.HIGHEST_BET_SLOT_INDEX=61 # highest bet amount which player will try to match with call
+const.HIGHEST_BET_SLOT_INDEX=61 
 const.CURRENT_PHASE=62
 const.PLAYER_CHECK_COUNTER=63
+const.FIRST_PLAYER_INDEX=64
 
 proc.update_current_turn
 
@@ -26,10 +26,10 @@ proc.update_current_turn
     drop drop drop
     # => [no_of_players, next_turn_index]
 
-    # Calculate last_player_index = 52 + 13 * no_of_players - 1 
-    push.PLAYER_STATS_SLOTS mul
-    push.CARDS_SLOTS add
+    # Calculate last_player_index = 64 + 13 * (no_of_players - 1) + 0
     push.1 sub
+    push.PLAYER_STATS_SLOTS mul
+    push.FIRST_PLAYER_INDEX add
     # => [last_player_index, next_turn_index]
 
     mem_store.0
@@ -57,9 +57,7 @@ proc.update_current_turn
                 # => [1, next_turn_index + 13]
             else 
                 # Rotate turn
-                push.CARDS_SLOTS
-                push.PLAYER_STATS_SLOTS add 
-                push.1 sub
+                push.FIRST_PLAYER_INDEX
                 push.1
                 # => [1, first_player_index]
             end
@@ -74,9 +72,7 @@ proc.update_current_turn
                 # => [0, 0, 0, next_turn_index]
             else 
                 # Rotate turn
-                push.CARDS_SLOTS
-                push.PLAYER_STATS_SLOTS add 
-                push.1 sub
+                push.FIRST_PLAYER_INDEX
                 padw drop
                 # => [0, 0, 0, first_player_index]
             end
@@ -194,31 +190,21 @@ proc.play_call
         dropw drop drop 
 
         # update current turn
-        push.CARDS_SLOTS
-        push.PLAYER_STATS_SLOTS add 
-        push.1 sub
+        push.FIRST_PLAYER_INDEX
         # => [first_player_index]
 
         dup push.10 add
         exec.account::get_item drop drop drop
         # => [is_fold, first_player_index]
 
+        swap padw drop
+        push.CURRENT_TURN_INDEX
+        exec.account::set_item
+        dropw dropw
+
         if.true
-            padw drop
-            push.CURRENT_TURN_INDEX
-            exec.account::set_item
-            dropw dropw
-
             exec.update_current_turn
-        else 
-            padw drop
-            push.CURRENT_TURN_INDEX
-            exec.account::set_item
-            dropw dropw
         end
-
-    else
-        push.1 drop
     end
 
     dropw drop drop drop

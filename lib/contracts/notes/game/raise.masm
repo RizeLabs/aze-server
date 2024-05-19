@@ -2,16 +2,16 @@ use.miden::account
 use.miden::note
 use.miden::contracts::wallets::basic->wallet
 
+const.PLAYER_STATS_SLOTS=13
 const.NO_OF_PLAYERS_INDEX=57
 const.RAISER_INDEX=58
-const.CURRENT_TURN_INDEX=60 # at 63 we stored pub key for current player (it will contain)
+const.CURRENT_TURN_INDEX=60
 const.HIGHEST_BET_SLOT_INDEX=61 # highest bet amount which player will try to match with call
-const.PLAYER_STATS_SLOTS=13
-const.CARDS_SLOTS=52
+const.FIRST_PLAYER_INDEX=64
 
 proc.update_current_turn
 
-    push.CURRENT_TURN_INDEX exec.account::get_item
+   push.CURRENT_TURN_INDEX exec.account::get_item
     # => [0, 0, 0, current_turn_index]
     drop drop drop
     # => [current_turn_index]
@@ -24,10 +24,10 @@ proc.update_current_turn
     drop drop drop
     # => [no_of_players, next_turn_index]
 
-    # Calculate last_player_index = 52 + 13 * no_of_players - 1 
-    push.PLAYER_STATS_SLOTS mul
-    push.CARDS_SLOTS add
+    # Calculate last_player_index = 64 + 13 * (no_of_players - 1) + 0
     push.1 sub
+    push.PLAYER_STATS_SLOTS mul
+    push.FIRST_PLAYER_INDEX add
     # => [last_player_index, next_turn_index]
 
     mem_store.0
@@ -55,9 +55,7 @@ proc.update_current_turn
                 # => [1, next_turn_index + 13]
             else 
                 # Rotate turn
-                push.CARDS_SLOTS
-                push.PLAYER_STATS_SLOTS add 
-                push.1 sub
+                push.FIRST_PLAYER_INDEX
                 push.1
                 # => [1, first_player_index]
             end
@@ -72,9 +70,7 @@ proc.update_current_turn
                 # => [0, 0, 0, next_turn_index]
             else 
                 # Rotate turn
-                push.CARDS_SLOTS
-                push.PLAYER_STATS_SLOTS add 
-                push.1 sub
+                push.FIRST_PLAYER_INDEX
                 padw drop
                 # => [0, 0, 0, first_player_index]
             end
