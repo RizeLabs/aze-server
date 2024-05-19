@@ -4,6 +4,7 @@ use aze_lib::client::{
     AzeAccountTemplate,
     AzeTransactionTemplate,
     SendCardTransactionData,
+    PlayBetTransactionData,
     PlayRaiseTransactionData,
     PlayCallTransactionData,
     PlayFoldTransactionData,
@@ -14,12 +15,18 @@ use aze_lib::constants::{
     SMALL_BLIND_AMOUNT,
     NO_OF_PLAYERS,
     FLOP_INDEX,
-    CURRENT_TURN_INDEX,
+    IS_FOLD_OFFSET,
+    FIRST_PLAYER_INDEX,
+    LAST_PLAYER_INDEX,
     HIGHEST_BET,
     PLAYER_INITIAL_BALANCE,
     PLAYER_BALANCE_SLOT,
     CURRENT_TURN_INDEX_SLOT,
     CHECK_COUNTER_SLOT,
+    RAISER_INDEX_SLOT,
+    PLAYER_STATS_SLOTS,
+    HIGHEST_BET_SLOT,
+    CURRENT_PHASE_SLOT
 };
 use aze_lib::executor::execute_tx_and_sync;
 use aze_lib::utils::{ get_random_coin, load_config };
@@ -95,7 +102,7 @@ fn setup_accounts(
         SMALL_BLIND_AMOUNT,
         BUY_IN_AMOUNT as u8,
         NO_OF_PLAYERS,
-        CURRENT_TURN_INDEX,
+        FIRST_PLAYER_INDEX,
         HIGHEST_BET,
         PLAYER_INITIAL_BALANCE
     );
@@ -363,13 +370,13 @@ async fn test_play_fold() {
 
     fund_account(&mut client, sender_account_id, faucet_account_id).await;
 
-    let playraise_txn_data = PlayFoldTransactionData::new(
+    let playfold_txn_data = PlayFoldTransactionData::new(
         Asset::Fungible(fungible_asset),
         sender_account_id,
         target_account_id
     );
 
-    let transaction_template = AzeTransactionTemplate::PlayFold(playraise_txn_data);
+    let transaction_template = AzeTransactionTemplate::PlayFold(playfold_txn_data);
     let txn_request = client.build_aze_play_fold_tx_request(transaction_template).unwrap();
     execute_tx_and_sync(&mut client, txn_request.clone()).await;
 
@@ -418,7 +425,483 @@ async fn test_play_check() {
     execute_tx_and_sync(&mut client, tx_request).await;
 
     println!("Executed and synced with node");
-    assert_slot_status_check(&client, target_account_id, game_slot_data.clone()).await;
+    assert_slot_status_check(&client, target_account_id, game_slot_data.clone(), 1 as u8).await;
+}
+
+#[tokio::test]
+async fn test_e2e() {
+    let mut client: AzeClient = create_test_client();
+
+    let (game_account, player1_account_id, faucet_account_id, game_slot_data) = setup_accounts(
+        &mut client
+    );
+
+    let game_account_id = game_account.id();
+
+    let (player2_account, _) = client
+        .new_game_account(
+            AzeAccountTemplate::PlayerAccount {
+                mutable_code: false,
+                storage_mode: AccountStorageMode::Local,
+            },
+            None
+        )
+        .unwrap();
+    
+    let (player3_account, _) = client
+        .new_game_account(
+            AzeAccountTemplate::PlayerAccount {
+                mutable_code: false,
+                storage_mode: AccountStorageMode::Local,
+            },
+            None
+        )
+        .unwrap();
+
+    let (player4_account, _) = client
+        .new_game_account(
+            AzeAccountTemplate::PlayerAccount {
+                mutable_code: false,
+                storage_mode: AccountStorageMode::Local,
+            },
+            None
+        )
+        .unwrap();
+
+    // Preflop
+
+    // Player 1 --> Small blind bets SMALL_BLIND_AMOUNT
+    let player1_bet = SMALL_BLIND_AMOUNT;
+    bet(&mut client, player1_account_id, game_account_id, faucet_account_id, player1_bet, 1 as u8).await;
+    //check player balance
+    let game_account = client.get_account(game_account_id).unwrap().0;
+    assert_eq!(
+        game_account.storage().get_item(68 as u8),
+        RpoDigest::new([Felt::from((PLAYER_INITIAL_BALANCE - player1_bet) as u8), Felt::ZERO, Felt::ZERO, Felt::ZERO])
+    );
+    println!("----->>> Small blind betted");
+
+    // Player 2 --> Big blind bets SMALL_BLIND_AMOUNT * 2
+    let player2_bet = SMALL_BLIND_AMOUNT * 2;
+    bet(&mut client, player2_account.id(), game_account_id, faucet_account_id, player2_bet, 2 as u8).await;
+    // check balance
+    let game_account = client.get_account(game_account_id).unwrap().0;
+    assert_eq!(
+        game_account.storage().get_item(81 as u8),
+        RpoDigest::new([Felt::from((PLAYER_INITIAL_BALANCE - player2_bet) as u8), Felt::ZERO, Felt::ZERO, Felt::ZERO])
+    );
+    println!("----->>> Big blind betted");
+
+    // Deal cards to players and assert the account status
+    deal_card(&mut client, game_account_id, player1_account_id, faucet_account_id, 0).await;
+    deal_card(&mut client, game_account_id, player2_account.id(), faucet_account_id, 2).await;
+    deal_card(&mut client, game_account_id, player3_account.id(), faucet_account_id, 4).await;
+    deal_card(&mut client, game_account_id, player4_account.id(), faucet_account_id, 6).await;
+    println!("----->>> Cards distributed");
+
+    // Player 3 --> Call
+    call(&mut client, player3_account.id(), game_account_id, faucet_account_id, 3).await;
+    // check balance
+    let game_account = client.get_account(game_account_id).unwrap().0;
+    assert_eq!(
+        game_account.storage().get_item(94 as u8),
+        RpoDigest::new([Felt::from(20 as u8), Felt::ZERO, Felt::ZERO, Felt::ZERO])
+    );
+    println!("----->>> Player 3 called");
+
+    // Player 4 --> Fold
+    fold(&mut client, player4_account.id(), game_account_id, faucet_account_id, 4).await;
+    println!("----->>> Player 4 folded");
+
+    // Player 1 --> Call
+    call(&mut client, player1_account_id, game_account_id, faucet_account_id, 1).await;
+    // check balance
+    let game_account = client.get_account(game_account_id).unwrap().0;
+    assert_eq!(
+        game_account.storage().get_item(68 as u8),
+        RpoDigest::new([Felt::from(20 as u8), Felt::ZERO, Felt::ZERO, Felt::ZERO])
+    );
+    println!("----->>> Player 1 called");
+
+    // Player 2 --> Check
+    println!("----->>> Big blind checking...");
+    check(&mut client, player2_account.id(), game_account_id, faucet_account_id, 2).await;
+    // assert check counter
+    let game_account = client.get_account(game_account_id).unwrap().0;
+    assert_eq!(
+        game_account.storage().get_item(CURRENT_PHASE_SLOT),
+        RpoDigest::new([Felt::from(1 as u8), Felt::ZERO, Felt::ZERO, Felt::ZERO])
+    );
+    println!("----->>> Player 2 checked");
+    println!("----->>> Flop revealed");
+
+    // Player 1 --> Check
+    check(&mut client, player1_account_id, game_account_id, faucet_account_id, 1).await;
+    println!("----->>> Player 1 checked");
+    // Player 2 --> Check
+    check(&mut client, player2_account.id(), game_account_id, faucet_account_id, 2).await;
+    println!("----->>> Player 2 checked");
+    // Player 3 --> Check
+    check(&mut client, player3_account.id(), game_account_id, faucet_account_id, 3).await;
+    println!("----->>> Player 3 checked");
+    println!("----->>> Turn revealed");
+    
+    // check phase
+    let game_account = client.get_account(game_account_id).unwrap().0;
+    assert_eq!(
+        game_account.storage().get_item(CURRENT_PHASE_SLOT),
+        RpoDigest::new([Felt::from(2 as u8), Felt::ZERO, Felt::ZERO, Felt::ZERO])
+    );
+
+    // Player 1 --> Check
+    check(&mut client, player1_account_id, game_account_id, faucet_account_id, 1).await;
+    println!("----->>> Player 1 checked");
+    // Player 2 --> Raise
+    raise(&mut client, player2_account.id(), game_account_id, faucet_account_id, 3 * SMALL_BLIND_AMOUNT, 2).await;
+    // check balance
+    let game_account = client.get_account(game_account_id).unwrap().0;
+    assert_eq!(
+        game_account.storage().get_item(81 as u8),
+        RpoDigest::new([Felt::from(5 as u8), Felt::ZERO, Felt::ZERO, Felt::ZERO])
+    );
+    println!("----->>> Player 2 raised");
+    // Player 3 --> Call
+    call(&mut client, player3_account.id(), game_account_id, faucet_account_id, 3).await;
+    println!("----->>> Player 3 called");
+    // Player 1 --> Call
+    call(&mut client, player1_account_id, game_account_id, faucet_account_id, 1).await;
+    println!("----->>> Player 1 called");
+    println!("----->>> River revealed");
+
+    // check phase
+    let game_account = client.get_account(game_account_id).unwrap().0;
+    assert_eq!(
+        game_account.storage().get_item(CURRENT_PHASE_SLOT),
+        RpoDigest::new([Felt::from(3 as u8), Felt::ZERO, Felt::ZERO, Felt::ZERO])
+    );
+    
+    // Player 1 --> Check
+    check(&mut client, player1_account_id, game_account_id, faucet_account_id, 1).await;
+    println!("----->>> Player 1 checked");
+    // Player 2 --> Check
+    check(&mut client, player2_account.id(), game_account_id, faucet_account_id, 2).await;
+    println!("----->>> Player 2 checked");
+    // Player 3 --> Check
+    check(&mut client, player3_account.id(), game_account_id, faucet_account_id, 3).await;
+    println!("----->>> Player 3 checked");
+
+    // check phase
+    let game_account = client.get_account(game_account_id).unwrap().0;
+    assert_eq!(
+        game_account.storage().get_item(CURRENT_PHASE_SLOT),
+        RpoDigest::new([Felt::from(4 as u8), Felt::ZERO, Felt::ZERO, Felt::ZERO])
+    );
+
+    println!("----->>> Showdown");
+}
+
+async fn bet(
+    client: &mut AzeClient,
+    player_account_id: AccountId,
+    game_account_id: AccountId,
+    faucet_account_id: AccountId,
+    player_bet: u8,
+    player_no: u8
+) {
+    fund_account(client, player_account_id, faucet_account_id).await;
+
+    let game_account = client.get_account(game_account_id).unwrap().0;
+    let game_account_storage = game_account.storage();
+
+    let last_raiser = game_account_storage.get_item(RAISER_INDEX_SLOT);
+    let last_phase_digest = game_account_storage.get_item(CURRENT_PHASE_SLOT);
+
+    let player_index: u8 = FIRST_PLAYER_INDEX + PLAYER_STATS_SLOTS * (player_no - 1);
+
+    let fungible_asset = FungibleAsset::new(faucet_account_id, BUY_IN_AMOUNT).unwrap();
+
+    let playbet_txn_data = PlayBetTransactionData::new(
+        Asset::Fungible(fungible_asset),
+        player_account_id,
+        game_account_id,
+        player_bet
+    );
+
+    let transaction_template = AzeTransactionTemplate::PlayBet(playbet_txn_data);
+    let txn_request = client.build_aze_play_bet_tx_request(transaction_template).unwrap();
+    execute_tx_and_sync(client, txn_request.clone()).await;
+
+    let note_id = txn_request.expected_output_notes()[0].id();
+    let note = client.get_input_note(note_id).unwrap();
+
+    let tx_template = TransactionTemplate::ConsumeNotes(game_account_id, vec![note.id()]);
+    let tx_request = client.build_transaction_request(tx_template).unwrap();
+    execute_tx_and_sync(client, tx_request).await;
+
+    // update the game account storage
+    let game_account = client.get_account(game_account_id).unwrap().0;
+    let game_account_storage = game_account.storage();
+    let player_index: u8 = (FIRST_PLAYER_INDEX + PLAYER_STATS_SLOTS * (player_no - 1));
+
+    // check next player index
+    assert_next_turn(&client, game_account_id, player_index, last_raiser, last_phase_digest).await;
+    // check highest bet
+    assert_eq!(
+        game_account_storage.get_item(HIGHEST_BET_SLOT),
+        RpoDigest::new([Felt::from(player_bet), Felt::ZERO, Felt::ZERO, Felt::ZERO])
+    );
+    // check player bet
+    assert_eq!(
+        game_account_storage.get_item((player_index + 3) as u8),
+        RpoDigest::new([Felt::from(player_bet), Felt::ZERO, Felt::ZERO, Felt::ZERO])
+    );
+}
+
+async fn check(
+    client: &mut AzeClient,
+    player_account_id: AccountId,
+    game_account_id: AccountId,
+    faucet_account_id: AccountId,
+    player_no: u8
+) {
+    fund_account(client, player_account_id, faucet_account_id).await;
+
+    let game_account = client.get_account(game_account_id).unwrap().0;
+    let game_account_storage = game_account.storage();
+
+    let last_raiser = game_account_storage.get_item(RAISER_INDEX_SLOT);
+    let last_phase_digest = game_account_storage.get_item(CURRENT_PHASE_SLOT);
+
+    let player_index: u8 = FIRST_PLAYER_INDEX + PLAYER_STATS_SLOTS * (player_no - 1);
+
+    let fungible_asset = FungibleAsset::new(faucet_account_id, BUY_IN_AMOUNT).unwrap();
+
+    let playcheck_txn_data = PlayCheckTransactionData::new(
+        Asset::Fungible(fungible_asset),
+        player_account_id,
+        game_account_id
+    );
+
+    let transaction_template = AzeTransactionTemplate::PlayCheck(playcheck_txn_data);
+    let txn_request = client.build_aze_play_check_tx_request(transaction_template).unwrap();
+    execute_tx_and_sync(client, txn_request.clone()).await;
+
+    let note_id = txn_request.expected_output_notes()[0].id();
+    let note = client.get_input_note(note_id).unwrap();
+
+    let tx_template = TransactionTemplate::ConsumeNotes(game_account_id, vec![note.id()]);
+    let tx_request = client.build_transaction_request(tx_template).unwrap();
+    execute_tx_and_sync(client, tx_request).await;
+
+    // check next turn
+    assert_next_turn(&client, game_account_id, player_index, last_raiser, last_phase_digest).await;
+}
+
+async fn fold(
+    client: &mut AzeClient,
+    player_account_id: AccountId,
+    game_account_id: AccountId,
+    faucet_account_id: AccountId,
+    player_no: u8
+) {
+    fund_account(client, player_account_id, faucet_account_id).await;
+
+    let game_account = client.get_account(game_account_id).unwrap().0;
+    let game_account_storage = game_account.storage();
+
+    let last_raiser = game_account_storage.get_item(RAISER_INDEX_SLOT);
+    let last_phase_digest = game_account_storage.get_item(CURRENT_PHASE_SLOT);
+
+    let player_index: u8 = FIRST_PLAYER_INDEX + PLAYER_STATS_SLOTS * (player_no - 1);
+    let fold_index = player_index + IS_FOLD_OFFSET;
+
+    let fungible_asset = FungibleAsset::new(faucet_account_id, BUY_IN_AMOUNT).unwrap();
+
+    let playfold_txn_data = PlayFoldTransactionData::new(
+        Asset::Fungible(fungible_asset),
+        player_account_id,
+        game_account_id
+    );
+
+    let transaction_template = AzeTransactionTemplate::PlayFold(playfold_txn_data);
+    let txn_request = client.build_aze_play_fold_tx_request(transaction_template).unwrap();
+    execute_tx_and_sync(client, txn_request.clone()).await;
+
+    let note_id = txn_request.expected_output_notes()[0].id();
+    let note = client.get_input_note(note_id).unwrap();
+
+    let tx_template = TransactionTemplate::ConsumeNotes(game_account_id, vec![note.id()]);
+    let tx_request = client.build_transaction_request(tx_template).unwrap();
+    execute_tx_and_sync(client, tx_request).await;
+
+    // update the game account storage
+    let game_account = client.get_account(game_account_id).unwrap().0;
+    let game_account_storage = game_account.storage();
+
+    // check is_fold
+    assert_eq!(
+        game_account_storage.get_item(fold_index),
+        RpoDigest::new([Felt::from(1 as u8), Felt::ZERO, Felt::ZERO, Felt::ZERO])
+    );
+
+    // check next turn index
+    assert_next_turn(&client, game_account_id, player_index, last_raiser, last_phase_digest).await;
+}
+
+async fn call(
+    client: &mut AzeClient,
+    player_account_id: AccountId,
+    game_account_id: AccountId,
+    faucet_account_id: AccountId,
+    player_no: u8
+) {
+    fund_account(client, player_account_id, faucet_account_id).await;
+
+    let game_account = client.get_account(game_account_id).unwrap().0;
+    let game_account_storage = game_account.storage();
+
+    let last_raiser = game_account_storage.get_item(RAISER_INDEX_SLOT);
+    let last_phase_digest = game_account_storage.get_item(CURRENT_PHASE_SLOT);
+
+    let player_index: u8 = FIRST_PLAYER_INDEX + PLAYER_STATS_SLOTS * (player_no - 1);
+
+    let fungible_asset = FungibleAsset::new(faucet_account_id, BUY_IN_AMOUNT).unwrap();
+
+    let playcall_txn_data = PlayCallTransactionData::new(
+        Asset::Fungible(fungible_asset),
+        player_account_id,
+        game_account_id
+    );
+
+    let transaction_template = AzeTransactionTemplate::PlayCall(playcall_txn_data);
+    let txn_request = client.build_aze_play_call_tx_request(transaction_template).unwrap();
+    execute_tx_and_sync(client, txn_request.clone()).await;
+
+    let note_id = txn_request.expected_output_notes()[0].id();
+    let note = client.get_input_note(note_id).unwrap();
+
+    let tx_template = TransactionTemplate::ConsumeNotes(game_account_id, vec![note.id()]);
+    let tx_request = client.build_transaction_request(tx_template).unwrap();
+    execute_tx_and_sync(client, tx_request).await;
+
+    // check next turn
+    assert_next_turn(&client, game_account_id, player_index, last_raiser, last_phase_digest).await;
+}
+
+async fn raise(
+    client: &mut AzeClient,
+    player_account_id: AccountId,
+    game_account_id: AccountId,
+    faucet_account_id: AccountId,
+    player_bet: u8,
+    player_no: u8
+) {
+    fund_account(client, player_account_id, faucet_account_id).await;
+
+    let game_account = client.get_account(game_account_id).unwrap().0;
+    let game_account_storage = game_account.storage();
+
+    let last_raiser = game_account_storage.get_item(RAISER_INDEX_SLOT);
+    let last_phase_digest = game_account_storage.get_item(CURRENT_PHASE_SLOT);
+
+    let fungible_asset = FungibleAsset::new(faucet_account_id, BUY_IN_AMOUNT).unwrap();
+
+    let playraise_txn_data = PlayRaiseTransactionData::new(
+        Asset::Fungible(fungible_asset),
+        player_account_id,
+        game_account_id,
+        player_bet
+    );
+
+    let transaction_template = AzeTransactionTemplate::PlayRaise(playraise_txn_data);
+    let txn_request = client.build_aze_play_raise_tx_request(transaction_template).unwrap();
+    execute_tx_and_sync(client, txn_request.clone()).await;
+
+    let note_id = txn_request.expected_output_notes()[0].id();
+    let note = client.get_input_note(note_id).unwrap();
+
+    let tx_template = TransactionTemplate::ConsumeNotes(game_account_id, vec![note.id()]);
+    let tx_request = client.build_transaction_request(tx_template).unwrap();
+    execute_tx_and_sync(client, tx_request).await;
+
+    // update the game account storage
+    let game_account = client.get_account(game_account_id).unwrap().0;
+    let game_account_storage = game_account.storage();
+    let player_index: u8 = (FIRST_PLAYER_INDEX + PLAYER_STATS_SLOTS * (player_no - 1));
+    // check raiser
+    assert_eq!(
+        game_account_storage.get_item(RAISER_INDEX_SLOT),
+        RpoDigest::new([
+            Felt::from(player_index),
+            Felt::ZERO,
+            Felt::ZERO,
+            Felt::ZERO,
+        ])
+    );
+    // check current player index
+    assert_next_turn(&client, game_account_id, player_index, last_raiser, last_phase_digest).await;
+    // check highest bet
+    assert_eq!(
+        game_account_storage.get_item(HIGHEST_BET_SLOT),
+        RpoDigest::new([Felt::from(player_bet), Felt::ZERO, Felt::ZERO, Felt::ZERO])
+    );
+    // check player bet
+    assert_eq!(
+        game_account_storage.get_item((player_index + 3) as u8),
+        RpoDigest::new([Felt::from(player_bet), Felt::ZERO, Felt::ZERO, Felt::ZERO])
+    );
+}
+
+async fn deal_card(
+    client: &mut AzeClient,
+    game_account_id: AccountId,
+    player_account_id: AccountId,
+    faucet_account_id: AccountId,
+    card_number: u8
+) {
+    fund_account(client, game_account_id, faucet_account_id).await;
+
+    let game_account = client.get_account(game_account_id).unwrap().0;
+    let game_account_storage = game_account.storage();
+
+    let fungible_asset = FungibleAsset::new(faucet_account_id, BUY_IN_AMOUNT).unwrap();
+
+    let card_suit = 1u8;
+
+    let input_cards = [
+        [
+            Felt::from(card_suit),
+            Felt::from(card_number + 1),
+            Felt::ZERO,
+            Felt::ZERO,
+        ],
+        [
+            Felt::from(card_suit),
+            Felt::from(card_number + 2),
+            Felt::ZERO,
+            Felt::ZERO,
+        ],
+    ];
+
+    let sendcard_txn_data = SendCardTransactionData::new(
+        Asset::Fungible(fungible_asset),
+        game_account_id,
+        player_account_id,
+        &input_cards
+    );
+
+    let transaction_template = AzeTransactionTemplate::SendCard(sendcard_txn_data);
+
+    let txn_request = client.build_aze_send_card_tx_request(transaction_template).unwrap();
+    execute_tx_and_sync(client, txn_request.clone()).await;
+
+    let note_id = txn_request.expected_output_notes()[0].id();
+    let note = client.get_input_note(note_id).unwrap();
+
+    let tx_template = TransactionTemplate::ConsumeNotes(player_account_id, vec![note.id()]);
+    let tx_request = client.build_transaction_request(tx_template).unwrap();
+    execute_tx_and_sync(client, tx_request).await;
+    assert_account_status(client, player_account_id, card_number as usize).await;
 }
 
 async fn assert_account_status(client: &AzeClient, account_id: AccountId, index: usize) {
@@ -528,7 +1011,7 @@ async fn assert_slot_status_raise(
     assert_eq!(
         game_account_storage.get_item(slot_index),
         RpoDigest::new([
-            Felt::from(slot_data.current_turn_index() + 13),
+            Felt::from(slot_data.current_turn_index() + PLAYER_STATS_SLOTS),
             Felt::ZERO,
             Felt::ZERO,
             Felt::ZERO,
@@ -584,15 +1067,15 @@ async fn assert_slot_status_fold(
     let (account, _) = client.get_account(account_id).unwrap();
     let game_account_storage = account.storage();
 
-    let fold_index = slot_data.current_turn_index() + 10;
-    
+    let fold_index = slot_data.current_turn_index() + IS_FOLD_OFFSET;
+
     // check is_fold
     assert_eq!(
         game_account_storage.get_item(fold_index),
         RpoDigest::new([Felt::from(1 as u8), Felt::ZERO, Felt::ZERO, Felt::ZERO])
     );
 
-    let next_turn_index = slot_data.current_turn_index() + 13;
+    let next_turn_index = slot_data.current_turn_index() + PLAYER_STATS_SLOTS;
     // check next turn index
     assert_eq!(
         game_account_storage.get_item(CURRENT_TURN_INDEX_SLOT),
@@ -603,16 +1086,17 @@ async fn assert_slot_status_fold(
 async fn assert_slot_status_check(
     client: &AzeClient,
     account_id: AccountId,
-    slot_data: GameStorageSlotData
+    slot_data: GameStorageSlotData,
+    player_number: u8
 ) {
     let (account, _) = client.get_account(account_id).unwrap();
     let game_account_storage = account.storage();
 
     // assert check count
     let check_count = game_account_storage.get_item(CHECK_COUNTER_SLOT);
-    assert_eq!(check_count, RpoDigest::new([Felt::from(1 as u8), Felt::ZERO, Felt::ZERO, Felt::ZERO]));
+    assert_eq!(check_count, RpoDigest::new([Felt::from(player_number as u8), Felt::ZERO, Felt::ZERO, Felt::ZERO]));
 
-    let next_turn_index = slot_data.current_turn_index() + 13;
+    let next_turn_index = slot_data.current_turn_index() + PLAYER_STATS_SLOTS * player_number;
     // check next turn index
     assert_eq!(
         game_account_storage.get_item(CURRENT_TURN_INDEX_SLOT),
@@ -623,4 +1107,50 @@ async fn assert_slot_status_check(
 async fn fund_account(client: &mut AzeClient, account_id: AccountId, faucet_account_id: AccountId) {
     let note = mint_note(client, account_id, faucet_account_id, NoteType::Public).await;
     consume_notes(client, account_id, &[note]).await;
+}
+
+async fn log_slots(client: &AzeClient, account_id: AccountId) {
+    let (regular_account, _seed) = client.get_account(account_id).unwrap();
+    for i in 1..117 {
+        println!("Account slot {:?} --> {:?}", i, regular_account.storage().get_item(i));
+    }
+}
+
+async fn assert_next_turn(client: &AzeClient, account_id: AccountId, player_index: u8, last_raiser_index: RpoDigest, last_phase_digest: RpoDigest) {
+    let (account, _) = client.get_account(account_id).unwrap();
+    let game_account_storage = account.storage();
+    log_slots(client, account_id).await;
+
+    let mut next_player_index = if player_index == LAST_PLAYER_INDEX {
+        FIRST_PLAYER_INDEX
+    } else {
+        player_index + PLAYER_STATS_SLOTS
+    };
+
+    // If phase was increased, then next player should be the first player
+    let mut last_phase = 0;
+    while RpoDigest::new([Felt::from(last_phase as u8), Felt::ZERO, Felt::ZERO, Felt::ZERO]) != last_phase_digest {
+        last_phase += 1;
+    }
+
+    if RpoDigest::new([Felt::from(last_phase as u8 + 1), Felt::ZERO, Felt::ZERO, Felt::ZERO]) == game_account_storage.get_item(CURRENT_PHASE_SLOT) {
+        next_player_index = FIRST_PLAYER_INDEX;
+    }
+
+    // find next player which has not folded
+    while game_account_storage.get_item(next_player_index + IS_FOLD_OFFSET) == RpoDigest::new([Felt::from(1 as u8), Felt::ZERO, Felt::ZERO, Felt::ZERO]) {
+        if next_player_index == player_index {
+            break;
+        }
+
+        next_player_index = next_player_index + PLAYER_STATS_SLOTS;
+        if next_player_index > LAST_PLAYER_INDEX {
+            next_player_index = FIRST_PLAYER_INDEX;
+        }
+    }
+
+    assert_eq!(
+        game_account_storage.get_item(CURRENT_TURN_INDEX_SLOT),
+        RpoDigest::new([Felt::from(next_player_index as u8), Felt::ZERO, Felt::ZERO, Felt::ZERO])
+    );
 }
