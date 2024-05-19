@@ -7,6 +7,7 @@ use aze_lib::client::{
     PlayRaiseTransactionData,
     PlayCallTransactionData,
     PlayFoldTransactionData,
+    PlayCheckTransactionData,
 };
 use aze_lib::constants::{
     BUY_IN_AMOUNT,
@@ -18,6 +19,7 @@ use aze_lib::constants::{
     PLAYER_INITIAL_BALANCE,
     PLAYER_BALANCE_SLOT,
     CURRENT_TURN_INDEX_SLOT,
+    CHECK_COUNTER_SLOT,
 };
 use aze_lib::executor::execute_tx_and_sync;
 use aze_lib::utils::{ get_random_coin, load_config };
@@ -382,6 +384,75 @@ async fn test_play_fold() {
     assert_slot_status_fold(&client, target_account_id, game_slot_data).await;
 }
 
+// #[tokio::test]
+async fn test_play_check() {
+    let mut client: AzeClient = create_test_client();
+
+    let (game_account, player_account_id, faucet_account_id, game_slot_data) = setup_accounts(
+        &mut client
+    );
+
+    let game_account_storage = game_account.storage();
+
+    let fungible_asset = FungibleAsset::new(faucet_account_id, BUY_IN_AMOUNT).unwrap();
+    let sender_account_id = player_account_id;
+    let target_account_id = game_account.id();
+
+    fund_account(&mut client, sender_account_id, faucet_account_id).await;
+
+    let playcheck_txn_data = PlayCheckTransactionData::new(
+        Asset::Fungible(fungible_asset),
+        sender_account_id,
+        target_account_id
+    );
+
+    let transaction_template = AzeTransactionTemplate::PlayCheck(playcheck_txn_data);
+    let txn_request = client.build_aze_play_check_tx_request(transaction_template).unwrap();
+    execute_tx_and_sync(&mut client, txn_request.clone()).await;
+
+    let note_id = txn_request.expected_output_notes()[0].id();
+    let note = client.get_input_note(note_id).unwrap();
+
+    let tx_template = TransactionTemplate::ConsumeNotes(target_account_id, vec![note.id()]);
+    let tx_request = client.build_transaction_request(tx_template).unwrap();
+    execute_tx_and_sync(&mut client, tx_request).await;
+
+    println!("Executed and synced with node");
+    assert_slot_status_check(&client, target_account_id, game_slot_data.clone(), 1 as u8).await;
+
+    let (player2_account, _) = client
+    .new_game_account(
+        AzeAccountTemplate::PlayerAccount {
+            mutable_code: false,
+            storage_mode: AccountStorageMode::Local,
+        },
+        None
+    )
+    .unwrap();
+
+    fund_account(&mut client, player2_account.id(), faucet_account_id).await;
+
+    let playcheck_txn_data = PlayCheckTransactionData::new(
+        Asset::Fungible(fungible_asset),
+        player2_account.id(),
+        target_account_id
+    );
+
+    let transaction_template = AzeTransactionTemplate::PlayCheck(playcheck_txn_data);
+    let txn_request = client.build_aze_play_check_tx_request(transaction_template).unwrap();
+    execute_tx_and_sync(&mut client, txn_request.clone()).await;
+
+    let note_id = txn_request.expected_output_notes()[0].id();
+    let note = client.get_input_note(note_id).unwrap();
+    
+    let tx_template = TransactionTemplate::ConsumeNotes(target_account_id, vec![note.id()]);
+    let tx_request = client.build_transaction_request(tx_template).unwrap();
+    execute_tx_and_sync(&mut client, tx_request).await;
+
+    println!("Executed and synced with node");
+    assert_slot_status_check(&client, target_account_id, game_slot_data, 2 as u8).await;
+}
+
 async fn assert_account_status(client: &AzeClient, account_id: AccountId, index: usize) {
     let (account, _) = client.get_account(account_id).unwrap();
     let card_suit = 1u8;
@@ -554,6 +625,27 @@ async fn assert_slot_status_fold(
     );
 
     let next_turn_index = slot_data.current_turn_index() + 13;
+    // check next turn index
+    assert_eq!(
+        game_account_storage.get_item(CURRENT_TURN_INDEX_SLOT),
+        RpoDigest::new([Felt::from(next_turn_index), Felt::ZERO, Felt::ZERO, Felt::ZERO])
+    );
+}
+
+async fn assert_slot_status_check(
+    client: &AzeClient,
+    account_id: AccountId,
+    slot_data: GameStorageSlotData,
+    player_number: u8
+) {
+    let (account, _) = client.get_account(account_id).unwrap();
+    let game_account_storage = account.storage();
+
+    // assert check count
+    let check_count = game_account_storage.get_item(CHECK_COUNTER_SLOT);
+    assert_eq!(check_count, RpoDigest::new([Felt::from(player_number as u8), Felt::ZERO, Felt::ZERO, Felt::ZERO]));
+
+    let next_turn_index = slot_data.current_turn_index() + 13 * player_number;
     // check next turn index
     assert_eq!(
         game_account_storage.get_item(CURRENT_TURN_INDEX_SLOT),
