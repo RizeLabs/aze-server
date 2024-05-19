@@ -308,7 +308,7 @@ async fn test_play_raise() {
     assert_slot_status_raise(&client, target_account_id, game_slot_data).await;
 }
 
-// #[tokio::test]
+#[tokio::test]
 async fn test_play_call() {
     let mut client: AzeClient = create_test_client();
 
