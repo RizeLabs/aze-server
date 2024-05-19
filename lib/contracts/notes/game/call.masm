@@ -154,6 +154,60 @@ proc.play_call
 
     # update current turn
     exec.update_current_turn
+
+    # update current phase
+    mem_load.1
+    # => [next_turn_index]
+
+    push.RAISER_INDEX exec.account::get_item
+    # => [0, 0, 0, raiser_index, next_turn_index]
+    drop drop drop
+    # => [raiser_index, next_turn_index]
+
+    eq
+    # => [raiser_index == next_turn_index]
+
+    if.true
+        push.CURRENT_PHASE exec.account::get_item
+        # => [0, 0, 0, current_phase]
+        drop drop drop
+        # => [current_phase]
+        push.1 add
+        # => [current_phase + 1]
+        padw drop push.CURRENT_PHASE 
+        exec.account::set_item
+        debug.stack
+        dropw drop drop
+
+        # reset raiser index
+        padw push.RAISER_INDEX
+        exec.account::set_item
+        dropw drop drop 
+
+        # reset check count
+        push.0 padw drop
+        push.PLAYER_CHECK_COUNTER exec.account::set_item
+        dropw drop drop 
+
+        # update current turn
+        push.FIRST_PLAYER_INDEX
+        # => [first_player_index]
+
+        dup push.10 add
+        exec.account::get_item drop drop drop
+        # => [is_fold, first_player_index]
+
+        swap padw drop
+        push.CURRENT_TURN_INDEX
+        exec.account::set_item
+        dropw dropw
+
+        if.true
+            exec.update_current_turn
+        end
+    end
+
+    dropw drop drop drop
 end
 
 
