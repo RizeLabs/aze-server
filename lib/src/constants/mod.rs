@@ -20,3 +20,5 @@ pub const PLAYER_BALANCE_SLOT: u8 = 68;
 pub const CURRENT_TURN_INDEX_SLOT: u8 = 60;
 pub const PLAYER_STATS_SLOTS: u8 = 13;
 pub const CHECK_COUNTER_SLOT: u8 = 63;
+pub const PLAYER_BET_OFFSET: u8 = 3;
+pub const HIGHEST_BET_SLOT: u8 = 61;
