@@ -1,7 +1,9 @@
+
 use crate::accounts::{ create_basic_aze_game_account, create_basic_aze_player_account };
 use crate::utils::{ create_aze_store_path, load_config };
 use crate::notes::{
     create_send_card_note,
+    create_play_bet_note,
     create_play_raise_note,
     create_play_call_note,
     create_play_fold_note,
@@ -56,6 +58,14 @@ pub struct SendCardTransactionData {
 }
 
 #[derive(Clone)]
+pub struct PlayBetTransactionData {
+    asset: Asset,
+    sender_account_id: AccountId,
+    target_account_id: AccountId,
+    player_bet: u8,
+}
+
+#[derive(Clone)]
 pub struct PlayRaiseTransactionData {
     asset: Asset,
     sender_account_id: AccountId,
@@ -99,6 +109,25 @@ impl SendCardTransactionData {
             sender_account_id,
             target_account_id,
             cards: *cards,
+        }
+    }
+}
+
+impl PlayBetTransactionData {
+    pub fn account_id(&self) -> AccountId {
+        self.sender_account_id
+    }
+    pub fn new(
+        asset: Asset,
+        sender_account_id: AccountId,
+        target_account_id: AccountId,
+        player_bet: u8
+    ) -> Self {
+        Self {
+            asset,
+            sender_account_id,
+            target_account_id,
+            player_bet,
         }
     }
 }
@@ -173,6 +202,11 @@ pub trait AzeGameMethods {
         cards: &[[Felt; 4]; 2]
     ) -> Result<(), ClientError>;
     fn build_aze_send_card_tx_request(
+        &mut self,
+        // auth_info: AuthInfo,
+        transaction_template: AzeTransactionTemplate
+    ) -> Result<TransactionRequest, ClientError>;
+    fn build_aze_play_bet_tx_request(
         &mut self,
         // auth_info: AuthInfo,
         transaction_template: AzeTransactionTemplate
@@ -374,6 +408,73 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> AzeGameMethods for Client<N, R, S> 
         let note_tag = created_note.metadata().tag().inner();
 
         // TODO: remove this hardcoded note type
+        let note_type = NoteType::Public;
+
+        let tx_script = ProgramAst::parse(
+            &transaction_request::AUTH_SEND_ASSET_SCRIPT
+                .replace("{recipient}", &recipient)
+                .replace("{note_type}", &Felt::new(note_type as u64).to_string())
+                .replace("{tag}", &Felt::new(note_tag.into()).to_string())
+                .replace("{asset}", &prepare_word(&asset.into()).to_string())
+        ).expect("shipped MASM is well-formed");
+
+        let tx_script = {
+            let script_inputs = vec![account_auth.into_advice_inputs()];
+            self.compile_tx_script(tx_script, script_inputs, vec![])?
+        };
+
+        println!("Created txn script");
+
+        Ok(
+            TransactionRequest::new(
+                sender_account_id,
+                BTreeMap::new(),
+                vec![created_note],
+                Some(tx_script)
+            )
+        )
+    }
+
+    fn build_aze_play_bet_tx_request(
+        &mut self,
+        // auth_info: AuthInfo,
+        transaction_template: AzeTransactionTemplate
+    ) -> Result<TransactionRequest, ClientError> {
+        let account_id = transaction_template.account_id();
+        let account_auth = self.store().get_account_auth(account_id)?;
+
+        let (sender_account_id, target_account_id, asset, player_bet) = match transaction_template {
+            AzeTransactionTemplate::PlayBet(
+                PlayBetTransactionData {
+                    asset,
+                    sender_account_id,
+                    target_account_id,
+                    player_bet,
+                },
+            ) => (sender_account_id, target_account_id, asset, player_bet),
+            _ => panic!("Invalid transaction template"),
+        };
+
+        let random_coin = self.get_random_coin();
+
+        let created_note = create_play_bet_note(
+            self,
+            sender_account_id,
+            target_account_id,
+            [asset].to_vec(),
+            NoteType::Public,
+            random_coin,
+            player_bet
+        )?;
+
+        let recipient = created_note
+            .recipient_digest()
+            .iter()
+            .map(|x| x.as_int().to_string())
+            .collect::<Vec<_>>()
+            .join(".");
+
+        let note_tag = created_note.metadata().tag().inner();
         let note_type = NoteType::Public;
 
         let tx_script = ProgramAst::parse(
@@ -674,6 +775,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> AzeGameMethods for Client<N, R, S> 
 //implement a new transaction template
 pub enum AzeTransactionTemplate {
     SendCard(SendCardTransactionData),
+    PlayBet(PlayBetTransactionData),
     PlayRaise(PlayRaiseTransactionData),
     PlayCall(PlayCallTransactionData),
     PlayFold(PlayFoldTransactionData),
@@ -685,6 +787,7 @@ impl AzeTransactionTemplate {
     pub fn account_id(&self) -> AccountId {
         match self {
             AzeTransactionTemplate::SendCard(p) => p.account_id(),
+            AzeTransactionTemplate::PlayBet(p) => p.account_id(),
             AzeTransactionTemplate::PlayRaise(p) => p.account_id(),
             AzeTransactionTemplate::PlayCall(p) => p.account_id(),
             AzeTransactionTemplate::PlayFold(p) => p.account_id(),
