@@ -8,7 +8,8 @@ use aze_lib::constants::{
     SMALL_BLIND_AMOUNT,
     HIGHEST_BET,
     PLAYER_INITIAL_BALANCE,
-    CURRENT_PHASE_SLOT
+    CURRENT_PHASE_SLOT,
+    CHECK_COUNTER_SLOT
 };
 use miden_client::{
     client::{
