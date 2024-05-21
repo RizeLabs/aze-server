@@ -125,7 +125,7 @@ pub async fn aze_poker_game_call() -> Result<Json<GameActionResponse>, GameActio
     let small_blind_amt = 5u8;
     let buy_in_amt = 100u8;
     let no_of_players = 4u8;
-    let current_turn_index = 65u8;
+    let current_turn_index = 64u8;
     let player_balance = 10u8;
 
     let slot_data = GameStorageSlotData::new(
@@ -207,7 +207,7 @@ pub async fn aze_poker_game_fold() -> Result<Json<GameActionResponse>, GameActio
     let small_blind_amt = 5u8;
     let buy_in_amt = 100u8;
     let no_of_players = 4u8;
-    let current_turn_index = 65u8;
+    let current_turn_index = 64u8;
     let player_balance = 10u8;
 
     let slot_data = GameStorageSlotData::new(
@@ -289,7 +289,7 @@ pub async fn aze_poker_game_check() -> Result<Json<GameActionResponse>, GameActi
     let small_blind_amt = 5u8;
     let buy_in_amt = 100u8;
     let no_of_players = 4u8;
-    let current_turn_index = 65u8;
+    let current_turn_index = 64u8;
     let player_balance = 10u8;
 
     let slot_data = GameStorageSlotData::new(
