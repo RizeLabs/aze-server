@@ -613,6 +613,75 @@ export.play_check
     drop
 end
 
+export.play_bet
+    # => [player_bet]
+    dup mem_store.0
+    # => [player_bet]
+    
+    padw drop push.HIGHEST_BET_SLOT_INDEX
+    exec.account::set_item
+    dropw dropw
+    # => []
+
+    mem_load.0
+    # => [player_bet]
+
+    ## raise amount = current player bet - it should be (bet amount - last call amount) ??
+    push.CURRENT_TURN_INDEX exec.account::get_item
+    # => [0, 0, 0, current turn index, player_bet]
+
+    drop drop drop
+    # => [current turn index, player_bet]
+
+    push.3 add
+    # => [current turn index + 3, player_bet]
+    dup mem_store.1
+    # => [current turn index + 3, player_bet]
+
+    padw drop movup.3
+    exec.account::set_item
+    dropw 
+    # => []
+
+    ## update the remaining balance of player 
+
+    push.CURRENT_TURN_INDEX exec.account::get_item drop drop drop
+    # [current turn index]
+
+    push.4 add
+    # [current turn index + 4]
+
+    dup
+    # [current turn index + 4, current turn index + 4]
+
+    exec.account::get_item drop drop drop 
+    # [player_remaining_balance, current turn index + 4]
+
+    push.HIGHEST_BET_SLOT_INDEX
+    # [HIGHEST_BET_SLOT_INDEX, player_remaining_balance, current turn index + 4]
+
+    exec.account::get_item drop drop drop 
+    # [player_bet, player_remaining_balance, current turn index + 4] -> ig here we need player_remaining_balance and then player_bet or we need to take it's absolute value
+    
+    dup.1 dup.1 gte assert
+    # [0/1, player_bet, player_remaining_balance, current turn index + 4]
+    # [player_bet, player_remaining_balance, current turn index + 4]
+
+    sub
+    # [player_balance_after_bet, current turn index + 4]
+
+    swap
+    # [current turn index + 4, player_balance_after_bet]
+
+    padw drop movup.3
+    # [current turn index + 4, 0, 0, 0, player_balance_after_bet]
+    exec.account::set_item
+    dropw dropw
+    # []
+
+    exec.update_current_turn
+end
+
 
 # some basic account methods 
 
