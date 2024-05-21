@@ -16,6 +16,7 @@ use aze_lib::constants::{
     NO_OF_PLAYERS,
     FLOP_INDEX,
     IS_FOLD_OFFSET,
+    PLAYER_BET_OFFSET,
     FIRST_PLAYER_INDEX,
     LAST_PLAYER_INDEX,
     HIGHEST_BET,
@@ -276,6 +277,46 @@ async fn test_cards_distribution() {
 }
 
 #[tokio::test]
+async fn test_play_bet() {
+    let mut client: AzeClient = create_test_client();
+
+    let (game_account, player_account_id, faucet_account_id, game_slot_data) = setup_accounts(
+        &mut client
+    );
+
+    let game_account_storage = game_account.storage();
+
+    let fungible_asset = FungibleAsset::new(faucet_account_id, BUY_IN_AMOUNT).unwrap();
+
+    let sender_account_id = player_account_id;
+    let target_account_id = game_account.id();
+
+    fund_account(&mut client, sender_account_id, faucet_account_id).await;
+
+    let player_bet = SMALL_BLIND_AMOUNT;
+
+    let playbet_txn_data = PlayBetTransactionData::new(
+        Asset::Fungible(fungible_asset),
+        sender_account_id,
+        target_account_id,
+        player_bet
+    );
+    let transaction_template = AzeTransactionTemplate::PlayBet(playbet_txn_data);
+    let txn_request = client.build_aze_play_bet_tx_request(transaction_template).unwrap();
+    execute_tx_and_sync(&mut client, txn_request.clone()).await;
+
+    let note_id = txn_request.expected_output_notes()[0].id();
+    let note = client.get_input_note(note_id).unwrap();
+
+    let tx_template = TransactionTemplate::ConsumeNotes(target_account_id, vec![note.id()]);
+    let tx_request = client.build_transaction_request(tx_template).unwrap();
+    execute_tx_and_sync(&mut client, tx_request).await;
+
+    println!("Executed and synced with node");
+    assert_slot_status_bet(&client, target_account_id, game_slot_data).await;
+}
+
+#[tokio::test]
 async fn test_play_raise() {
     let mut client: AzeClient = create_test_client();
 
@@ -447,6 +488,39 @@ async fn assert_account_status(client: &AzeClient, account_id: AccountId, index:
         RpoDigest::new([
             Felt::from(card_suit),
             Felt::from((index + 2) as u8),
+            Felt::ZERO,
+            Felt::ZERO,
+        ])
+    );
+}
+
+async fn assert_slot_status_bet(
+    client: &AzeClient,
+    account_id: AccountId,
+    slot_data: GameStorageSlotData
+) {
+    let (account, _) = client.get_account(account_id).unwrap();
+    let game_account_storage = account.storage();
+
+    let player_index = slot_data.current_turn_index();
+    let player_bet = SMALL_BLIND_AMOUNT;
+
+    // check highest bet
+    assert_eq!(
+        game_account_storage.get_item(HIGHEST_BET_SLOT),
+        RpoDigest::new([Felt::from(player_bet), Felt::ZERO, Felt::ZERO, Felt::ZERO])
+    );
+    // check player bet
+    assert_eq!(
+        game_account_storage.get_item((player_index + PLAYER_BET_OFFSET) as u8),
+        RpoDigest::new([Felt::from(player_bet), Felt::ZERO, Felt::ZERO, Felt::ZERO])
+    );
+    // check current player index
+    assert_eq!(
+        game_account_storage.get_item(CURRENT_TURN_INDEX_SLOT),
+        RpoDigest::new([
+            Felt::from(player_index + PLAYER_STATS_SLOTS),
+            Felt::ZERO,
             Felt::ZERO,
             Felt::ZERO,
         ])
