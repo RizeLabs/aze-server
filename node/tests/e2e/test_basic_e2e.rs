@@ -8,7 +8,8 @@ use aze_lib::constants::{
     SMALL_BLIND_AMOUNT,
     HIGHEST_BET,
     PLAYER_INITIAL_BALANCE,
-    CURRENT_PHASE_SLOT
+    CURRENT_PHASE_SLOT,
+    CHECK_COUNTER_SLOT
 };
 use miden_client::{
     client::{
@@ -121,7 +122,7 @@ async fn test_e2e() {
     // Player 2 --> Check
     println!("----->>> Big blind checking...");
     utils::check(&mut client, player2_account.id(), game_account_id, faucet_account_id, 2).await;
-    // assert check counter
+    // check phase
     let game_account = client.get_account(game_account_id).unwrap().0;
     assert_eq!(
         game_account.storage().get_item(CURRENT_PHASE_SLOT),
@@ -132,9 +133,21 @@ async fn test_e2e() {
 
     // Player 1 --> Check
     utils::check(&mut client, player1_account_id, game_account_id, faucet_account_id, 1).await;
+    // assert check counter
+    let game_account = client.get_account(game_account_id).unwrap().0;
+    assert_eq!(
+        game_account.storage().get_item(CHECK_COUNTER_SLOT),
+        RpoDigest::new([Felt::from(1 as u8), Felt::ZERO, Felt::ZERO, Felt::ZERO])
+    );
     println!("----->>> Player 1 checked");
     // Player 2 --> Check
     utils::check(&mut client, player2_account.id(), game_account_id, faucet_account_id, 2).await;
+    // assert check counter
+    let game_account = client.get_account(game_account_id).unwrap().0;
+    assert_eq!(
+        game_account.storage().get_item(CHECK_COUNTER_SLOT),
+        RpoDigest::new([Felt::from(2 as u8), Felt::ZERO, Felt::ZERO, Felt::ZERO])
+    );
     println!("----->>> Player 2 checked");
     // Player 3 --> Check
     utils::check(&mut client, player3_account.id(), game_account_id, faucet_account_id, 3).await;
@@ -150,6 +163,12 @@ async fn test_e2e() {
 
     // Player 1 --> Check
     utils::check(&mut client, player1_account_id, game_account_id, faucet_account_id, 1).await;
+    // assert check counter
+    let game_account = client.get_account(game_account_id).unwrap().0;
+    assert_eq!(
+        game_account.storage().get_item(CHECK_COUNTER_SLOT),
+        RpoDigest::new([Felt::from(1 as u8), Felt::ZERO, Felt::ZERO, Felt::ZERO])
+    );
     println!("----->>> Player 1 checked");
     // Player 2 --> Raise
     utils::raise(&mut client, player2_account.id(), game_account_id, faucet_account_id, 3 * SMALL_BLIND_AMOUNT, 2).await;
@@ -177,9 +196,21 @@ async fn test_e2e() {
     
     // Player 1 --> Check
     utils::check(&mut client, player1_account_id, game_account_id, faucet_account_id, 1).await;
+    // assert check counter
+    let game_account = client.get_account(game_account_id).unwrap().0;
+    assert_eq!(
+        game_account.storage().get_item(CHECK_COUNTER_SLOT),
+        RpoDigest::new([Felt::from(1 as u8), Felt::ZERO, Felt::ZERO, Felt::ZERO])
+    );
     println!("----->>> Player 1 checked");
     // Player 2 --> Check
     utils::check(&mut client, player2_account.id(), game_account_id, faucet_account_id, 2).await;
+    // assert check counter
+    let game_account = client.get_account(game_account_id).unwrap().0;
+    assert_eq!(
+        game_account.storage().get_item(CHECK_COUNTER_SLOT),
+        RpoDigest::new([Felt::from(2 as u8), Felt::ZERO, Felt::ZERO, Felt::ZERO])
+    );
     println!("----->>> Player 2 checked");
     // Player 3 --> Check
     utils::check(&mut client, player3_account.id(), game_account_id, faucet_account_id, 3).await;
