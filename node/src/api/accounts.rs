@@ -17,6 +17,7 @@ use aze_types::accounts::{
     AccountCreationError,
     AccountCreationRequest,
     AccountCreationResponse,
+    PlayerAccountCreationRequest,
     PlayerAccountCreationResponse,
 };
 use aze_lib::utils::log_account_status;
@@ -123,8 +124,8 @@ pub async fn create_aze_game_account(request_object: Json<AccountCreationRequest
     Ok(Json(AccountCreationResponse { game_id: game_account_id.into() }))
 }
 
-#[get("/v1/player/create-account")]
-pub async fn create_aze_player_account() -> Result<
+#[post("/v1/player/create-account")]
+pub async fn create_aze_player_account(request_object: Json<PlayerAccountCreationRequest>) -> Result<
     Json<PlayerAccountCreationResponse>,
     AccountCreationError
 > {
@@ -148,7 +149,6 @@ pub async fn create_aze_player_account() -> Result<
 
     Ok(
         Json(PlayerAccountCreationResponse {
-            is_created: true,
             account_id: game_account.id().into(),
         })
     )

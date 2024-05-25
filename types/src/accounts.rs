@@ -25,8 +25,12 @@ pub struct AccountCreationResponse {
 }
 
 #[derive(Deserialize, Serialize)]
+pub struct PlayerAccountCreationRequest {
+    pub username: String,
+}
+
+#[derive(Deserialize, Serialize)]
 pub struct PlayerAccountCreationResponse {
-    pub is_created: bool,
     pub account_id: u64,
 }
 
