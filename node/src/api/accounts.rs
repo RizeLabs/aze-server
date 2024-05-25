@@ -15,12 +15,14 @@ use aze_lib::storage::GameStorageSlotData;
 
 use aze_types::accounts::{
     AccountCreationError,
+    AccountCreationRequest,
     AccountCreationResponse,
     PlayerAccountCreationResponse,
 };
 use aze_lib::utils::log_account_status;
 use miden_lib::AuthScheme;
 use miden_objects::{
+    accounts:: AccountId,
     assets::TokenSymbol,
     assets::{ Asset, FungibleAsset },
     crypto::dsa::rpo_falcon512::{ PublicKey, SecretKey },
@@ -31,27 +33,16 @@ use miden_client::client::{
     transactions::transaction_request::TransactionTemplate,
 };
 
-use actix_web::{ get, web::Json };
+use actix_web::{ get, post, web::Json };
 
 // TODO: pass account id of the players as request object in this game
-#[get("/v1/game/create-account")]
-pub async fn create_aze_game_account() -> Result<
+#[post("/v1/game/create-account")]
+pub async fn create_aze_game_account(request_object: Json<AccountCreationRequest>) -> Result<
     Json<AccountCreationResponse>,
     AccountCreationError
 > {
     let mut client: AzeClient = create_aze_client();
     let slot_data = GameStorageSlotData::new(0, 0, 0, 0, 0, 0);
-
-    // TODO: creating player just for testing purposes
-    let (player_account, _) = client
-        .new_game_account(
-            AzeAccountTemplate::PlayerAccount {
-                mutable_code: false,
-                storage_mode: AccountStorageMode::Local, // for now
-            },
-            None
-        )
-        .unwrap();
 
     let (faucet_account, _) = client
         .new_account(AccountTemplate::FungibleFaucet {
@@ -66,7 +57,7 @@ pub async fn create_aze_game_account() -> Result<
     let fungible_asset = FungibleAsset::new(faucet_account_id, BUY_IN_AMOUNT).unwrap();
 
     // TODO: get the player account ids from the request object
-    let player_account_ids = vec![player_account.id()];
+    let player_account_ids = request_object.game_player_ids.clone();
 
     let (game_account, _) = client
         .new_game_account(
@@ -102,10 +93,8 @@ pub async fn create_aze_game_account() -> Result<
 
     println!("Start sending cards to players");
     for (i, _) in player_account_ids.iter().enumerate() {
-        let target_account_id = player_account_ids[i];
+        let target_account_id = AccountId::try_from(player_account_ids[i]).unwrap();
         println!("Target account id {:?}", target_account_id);
-
-        log_account_status(&client, target_account_id).await;
 
         let input_cards = [cards[i], cards[i + 1]];
         let sendcard_txn_data = SendCardTransactionData::new(
@@ -128,11 +117,10 @@ pub async fn create_aze_game_account() -> Result<
         execute_tx_and_sync(&mut client, tx_request).await;
 
         println!("Executed and synced with node");
-        log_account_status(&client, target_account_id).await;
     }
 
     // TODO: define appropriate response types
-    Ok(Json(AccountCreationResponse { is_created: true }))
+    Ok(Json(AccountCreationResponse { game_id: game_account_id.into() }))
 }
 
 #[get("/v1/player/create-account")]
