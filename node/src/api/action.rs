@@ -17,7 +17,7 @@ use aze_lib::constants::BUY_IN_AMOUNT;
 use aze_lib::executor::execute_tx_and_sync;
 use aze_lib::notes::{consume_notes, mint_note};
 use aze_lib::storage::GameStorageSlotData;
-use aze_lib::utils::{initial_setup, log_account_status, log_slots};
+use aze_lib::utils::{setup_accounts, log_account_status, log_slots};
 use aze_types::actions::{GameActionError, GameActionResponse};
 use derive_more::Display;
 use miden_client::client::{
@@ -34,7 +34,7 @@ pub async fn aze_poker_game_action() -> Result<Json<GameActionResponse>, GameAct
     let mut client: AzeClient = create_aze_client();
 
     let (fungible_asset, sender_account_id, target_account_id, slot_data) =
-        initial_setup(&mut client).await;
+        setup_accounts(&mut client).await;
 
     let player_bet = slot_data.buy_in_amt(); 
 
@@ -68,7 +68,7 @@ pub async fn aze_poker_game_call() -> Result<Json<GameActionResponse>, GameActio
     let mut client: AzeClient = create_aze_client();
 
     let (fungible_asset, sender_account_id, target_account_id, slot_data) =
-    initial_setup(&mut client).await;
+    setup_accounts(&mut client).await;
     
 
     let playcall_txn_data = PlayCallTransactionData::new(
@@ -100,7 +100,7 @@ pub async fn aze_poker_game_fold() -> Result<Json<GameActionResponse>, GameActio
     let mut client: AzeClient = create_aze_client();
 
     let (fungible_asset, sender_account_id, target_account_id, slot_data) =
-    initial_setup(&mut client).await;
+    setup_accounts(&mut client).await;
     let playcall_txn_data = PlayFoldTransactionData::new(
         Asset::Fungible(fungible_asset),
         sender_account_id,
@@ -130,7 +130,7 @@ pub async fn aze_poker_game_check() -> Result<Json<GameActionResponse>, GameActi
     let mut client: AzeClient = create_aze_client();
 
     let (fungible_asset, sender_account_id, target_account_id, slot_data) =
-    initial_setup(&mut client).await;
+    setup_accounts(&mut client).await;
 
     let playcheck_txn_data = PlayCheckTransactionData::new(
         Asset::Fungible(fungible_asset),
