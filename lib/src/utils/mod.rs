@@ -1,14 +1,11 @@
 use miden_objects::{
     accounts::{ Account, AccountCode, AccountId, AccountStorage, SlotItem },
     assembly::{ ModuleAst, ProgramAst },
-    assets::{ Asset, AssetVault, FungibleAsset },
+    assets::{ Asset, AssetVault, FungibleAsset, TokenSymbol },
     crypto::{
-        dsa::rpo_falcon512::SecretKey,
-        utils::Serializable,
-        rand::FeltRng,
-        rand::RpoRandomCoin,
+        dsa::rpo_falcon512::SecretKey, rand::{FeltRng, RpoRandomCoin}, utils::Serializable
     },
-    notes::{ Note, NoteId, NoteScript },
+    notes::{ Note, NoteId, NoteScript, NoteType },
     transaction::{
         ChainMmr,
         ExecutedTransaction,
@@ -21,9 +18,10 @@ use miden_objects::{
     Felt,
     Word,
 };
+
 use std::{ env::temp_dir, fs, time::Duration };
 use miden_client::{
-    client::{ rpc::NodeRpcClient, Client },
+    client::{ accounts::{AccountStorageMode, AccountTemplate}, rpc::NodeRpcClient, Client },
     config::ClientConfig,
     errors::{ ClientError, NoteIdPrefixFetchError },
     store::{ sqlite_store::SqliteStore, InputNoteRecord, NoteFilter as ClientNoteFilter, Store },
@@ -31,7 +29,7 @@ use miden_client::{
 use std::path::Path;
 use figment::{ providers::{ Format, Toml }, Figment };
 use ::rand::Rng;
-use crate::client::AzeClient;
+use crate::{client::{AzeAccountTemplate, AzeClient, AzeGameMethods}, constants::BUY_IN_AMOUNT, notes::{consume_notes, mint_note}, storage::GameStorageSlotData};
 
 // use uuid::Uuid;
 
@@ -82,4 +80,70 @@ pub async fn log_slots(client: &AzeClient, account_id: AccountId) {
     for i in 1..100 {
         println!("Account slot {:?} --> {:?}", i, regular_account.storage().get_item(i));
     }
+}
+
+pub async fn initial_setup(mut client: &mut AzeClient) -> (FungibleAsset, AccountId, AccountId, GameStorageSlotData){
+    let small_blind_amt = 5u8;
+    let buy_in_amt = 100u8;
+    let no_of_players = 4u8;
+    let current_turn_index = 64u8;
+    let player_balance = 10u8;
+
+    let slot_data = GameStorageSlotData::new(
+        small_blind_amt,
+        buy_in_amt,
+        no_of_players,
+        current_turn_index,
+        small_blind_amt,
+        player_balance,
+    );
+
+    let (game_account, _) = client
+        .new_game_account(
+            AzeAccountTemplate::GameAccount {
+                mutable_code: false,
+                storage_mode: AccountStorageMode::Local, // for now
+            },
+            Some(slot_data.clone()),
+        )
+        .unwrap();
+    let game_account_id = game_account.id();
+    log_slots(&client, game_account_id).await;
+
+    let (player_account, _) = client
+        .new_game_account(
+            AzeAccountTemplate::PlayerAccount {
+                mutable_code: false,
+                storage_mode: AccountStorageMode::Local, // for now
+            },
+            None,
+        )
+        .unwrap();
+    let player_account_id = player_account.id();
+
+    let (faucet_account, _) = client
+        .new_account(AccountTemplate::FungibleFaucet {
+            token_symbol: TokenSymbol::new("MATIC").unwrap(),
+            decimals: 8,
+            max_supply: 1_000_000_000,
+            storage_mode: AccountStorageMode::Local,
+        })
+        .unwrap();
+    let faucet_account_id = faucet_account.id();
+
+    let note = mint_note(
+        &mut client,
+        player_account_id,
+        faucet_account_id,
+        NoteType::Public,
+    )
+    .await;
+    println!("Minted note");
+    consume_notes(&mut client, player_account_id, &[note]).await;
+
+    let fungible_asset = FungibleAsset::new(faucet_account_id, BUY_IN_AMOUNT).unwrap();
+    let sender_account_id = player_account_id;
+    let target_account_id = game_account_id;
+
+    return (fungible_asset, sender_account_id, target_account_id, slot_data)
 }
