@@ -50,6 +50,7 @@ use miden_objects::{
     accounts::{ Account, AccountId },
     notes::NoteType,
 };
+use ansi_term::Colour::{ Green, Yellow };
 
 pub fn create_test_client() -> AzeClient {
     let mut current_dir = std::env
@@ -112,9 +113,19 @@ pub fn setup_accounts(
     return (game_account, player_account.id(), faucet_account.id(), slot_data);
 }
 
-async fn fund_account(client: &mut AzeClient, account_id: AccountId, faucet_account_id: AccountId) {
-    let note = mint_note(client, account_id, faucet_account_id, NoteType::Public).await;
-    consume_notes(client, account_id, &[note]).await;
+pub async fn fund_account(client: &mut AzeClient, account_id: AccountId, faucet_account_id: AccountId) {
+    let fungible_asset = FungibleAsset::new(faucet_account_id, 10 * BUY_IN_AMOUNT).unwrap();
+    let tx_template = TransactionTemplate::MintFungibleAsset(
+        fungible_asset,
+        account_id,
+        NoteType::Public
+    );
+    let tx_request = client.build_transaction_request(tx_template).unwrap();
+    let _ = execute_tx_and_sync(client, tx_request.clone()).await;
+    let note_id = tx_request.expected_output_notes()[0].id();
+    let note = client.get_input_note(note_id).unwrap();
+    consume_notes(client, account_id, &[note.try_into().unwrap()]).await;
+    println!("{}", Yellow.paint(format!("Funded account: {:?}", account_id)));
 }
 
 pub async fn bet(
@@ -125,8 +136,6 @@ pub async fn bet(
     player_bet: u8,
     player_no: u8
 ) {
-    fund_account(client, player_account_id, faucet_account_id).await;
-
     let game_account = client.get_account(game_account_id).unwrap().0;
     let game_account_storage = game_account.storage();
 
@@ -181,8 +190,6 @@ pub async fn check(
     faucet_account_id: AccountId,
     player_no: u8
 ) {
-    fund_account(client, player_account_id, faucet_account_id).await;
-
     let game_account = client.get_account(game_account_id).unwrap().0;
     let game_account_storage = game_account.storage();
 
@@ -221,8 +228,6 @@ pub async fn fold(
     faucet_account_id: AccountId,
     player_no: u8
 ) {
-    fund_account(client, player_account_id, faucet_account_id).await;
-
     let game_account = client.get_account(game_account_id).unwrap().0;
     let game_account_storage = game_account.storage();
 
@@ -272,8 +277,6 @@ pub async fn call(
     faucet_account_id: AccountId,
     player_no: u8
 ) {
-    fund_account(client, player_account_id, faucet_account_id).await;
-
     let game_account = client.get_account(game_account_id).unwrap().0;
     let game_account_storage = game_account.storage();
 
@@ -313,8 +316,6 @@ pub async fn raise(
     player_bet: u8,
     player_no: u8
 ) {
-    fund_account(client, player_account_id, faucet_account_id).await;
-
     let game_account = client.get_account(game_account_id).unwrap().0;
     let game_account_storage = game_account.storage();
 
@@ -376,8 +377,6 @@ pub async fn deal_card(
     faucet_account_id: AccountId,
     card_number: u8
 ) {
-    fund_account(client, game_account_id, faucet_account_id).await;
-
     let game_account = client.get_account(game_account_id).unwrap().0;
     let game_account_storage = game_account.storage();
 
