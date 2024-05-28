@@ -3,7 +3,8 @@ name: Run Aze integration Tests on PR
 on:
   pull_request:
     branches:
-      - main  
+      - main
+      - develop
 
 jobs:
   test:

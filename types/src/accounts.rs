@@ -12,13 +12,25 @@ use derive_more::Display;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize)]
+pub struct AccountCreationRequest {
+    pub game_player_ids: Vec<u64>,
+    pub big_blind: u8,
+    pub small_blind: u8,
+    pub buy_in: u8,
+}
+
+#[derive(Deserialize, Serialize)]
 pub struct AccountCreationResponse {
-    pub is_created: bool,
+    pub game_id: u64,
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct PlayerAccountCreationRequest {
+    pub username: String,
 }
 
 #[derive(Deserialize, Serialize)]
 pub struct PlayerAccountCreationResponse {
-    pub is_created: bool,
     pub account_id: u64,
 }
 
